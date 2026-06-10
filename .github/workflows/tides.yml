@@ -1,0 +1,28 @@
+name: Tide fetch (daily)
+
+# Refreshes only the tide columns on existing slot_forecast rows (NIWA).
+on:
+  schedule:
+    - cron: '0 13 * * *'        # once a day at 13:00 UTC (~1am NZ, off-peak)
+  workflow_dispatch: {}
+
+concurrency:
+  group: fetch-tides
+  cancel-in-progress: false
+
+jobs:
+  tides:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Run tide fetch
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NIWA_KEY:             ${{ secrets.NIWA_KEY }}
+        run: python -u _fetch_tides.py

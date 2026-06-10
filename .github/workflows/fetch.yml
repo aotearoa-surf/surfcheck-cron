@@ -1,0 +1,28 @@
+name: Forecast fetch (3-hourly)
+
+# Runs the main Stormglass + Open-Meteo forecast cycle and refreshes spot_now.
+on:
+  schedule:
+    - cron: '0 */3 * * *'      # every 3 hours, on the hour (UTC)
+  workflow_dispatch: {}         # adds a manual "Run workflow" button
+
+concurrency:
+  group: fetch-main             # never let two main runs overlap
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20         # a hang self-kills here (a healthy run is ~5 min)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Run main forecast fetch
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STORMGLASS_KEY:       ${{ secrets.STORMGLASS_KEY }}
+        run: python -u _fetch_main.py
