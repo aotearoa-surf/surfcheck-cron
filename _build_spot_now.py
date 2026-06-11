@@ -33,10 +33,13 @@ def build_rows(slots, cur=None):
     """slots: iterable of slot_forecast dicts. Returns list of spot_now rows.
 
     now      = the current slot (>= cur), T00 included — live is live.
-    days[]   = per day: am (T06), pm (best of T12/T18), and the day's `best`
-               (the higher of am/pm). T00 is EXCLUDED from these "best of"
-               representations (nobody surfs at midnight). Today's already-past
-               slots are skipped.
+    days[]   = per day: ALL four sessions (t00..t18) including today's
+               already-past ones, so the forecast page can show the full day
+               (Che 2026-06-12: "show all of today's readings, highlight now").
+               The day's `best` (used for rankings and chip strips) still only
+               considers t06/t12/t18 that are NOT already past — rankings
+               should reflect what's still surfable. T00 stays excluded from
+               `best` (nobody surfs at midnight).
     """
     cur = cur or current_slot_key()
     today = cur.split("T")[0]
@@ -55,17 +58,21 @@ def build_rows(slots, cur=None):
             if "T" not in sk:
                 continue
             d, hh = sk.split("T", 1)
-            if d == today and sk < cur:
-                continue                       # skip today's already-past slots
-            by_date[d][hh] = r
+            by_date[d][hh] = r                 # keep ALL slots, incl today's past
         days = []
         for d in sorted(by_date):
             hh = by_date[d]
             t00, t06, t12, t18 = hh.get("00"), hh.get("06"), hh.get("12"), hh.get("18")
-            surfable = [x for x in (t06, t12, t18) if x]   # "best of" EXCLUDES T00
-            if not surfable:
+            # "best of" pool: t06/t12/t18 that are still current or ahead.
+            # Late evening (everything past) falls back to the full day so
+            # today keeps a sensible chip instead of vanishing.
+            pool = [x for x in (t06, t12, t18)
+                    if x and not (d == today and x["slot_key"] < cur)]
+            if not pool:
+                pool = [x for x in (t06, t12, t18) if x]
+            if not pool:
                 continue
-            best = max(surfable, key=lambda r: r["rating_score"] or 0)
+            best = max(pool, key=lambda r: r["rating_score"] or 0)
             entry = _fields(best)          # inline = the day's best (spots chip strip, no T00)
             entry["date"] = d
             entry["t00"] = _fields(t00)    # all 4 sessions for the forecast detail grid

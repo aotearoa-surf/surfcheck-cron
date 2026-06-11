@@ -478,10 +478,11 @@ def main():
         # 3c. Refresh the spot_now aggregate (1 row/spot: current slot + 7-day best)
         #     so the list pages read 122 rows in one request instead of paginating.
         try:
-            from _build_spot_now import build_rows, upsert_spot_now
-            sn = build_rows(all_rows)
-            upsert_spot_now(sn, URL, {"apikey": KEY, "Authorization": f"Bearer {KEY}"})
-            print(f"  spot_now refreshed: {len(sn)} spots", flush=True)
+            # Re-query the DB for today-onward slots instead of using this
+            # cycle's (future-only) rows, so days[] includes today's already-
+            # past sessions (forecast page shows the full day, now highlighted).
+            from _build_spot_now import backfill
+            backfill()
         except Exception as e:
             print(f"  spot_now skipped: {e}", flush=True)
 
