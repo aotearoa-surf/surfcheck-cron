@@ -3,7 +3,7 @@ name: Forecast fetch (3-hourly)
 # Runs the main Stormglass + Open-Meteo forecast cycle and refreshes spot_now.
 on:
   schedule:
-    - cron: '0 */3 * * *'      # every 3 hours, on the hour (UTC)
+    - cron: '23 */3 * * *'     # every 3 hours at :23 past (UTC) — off-peak to avoid GitHub's :00 congestion
   workflow_dispatch: {}         # adds a manual "Run workflow" button
 
 concurrency:

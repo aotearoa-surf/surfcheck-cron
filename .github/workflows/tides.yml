@@ -3,7 +3,7 @@ name: Tide fetch (daily)
 # Refreshes only the tide columns on existing slot_forecast rows (NIWA).
 on:
   schedule:
-    - cron: '0 13 * * *'        # once a day at 13:00 UTC (~1am NZ, off-peak)
+    - cron: '23 13 * * *'       # once a day at 13:23 UTC (~1am NZ), off :00 to avoid GitHub congestion
   workflow_dispatch: {}
 
 concurrency:
