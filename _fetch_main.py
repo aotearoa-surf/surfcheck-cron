@@ -292,37 +292,6 @@ def fetch_open_meteo_marine(lat, lng):
                     f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
 
 
-def _chunks(seq, n):
-    for i in range(0, len(seq), n):
-        yield seq[i:i + n]
-
-def fetch_open_meteo_forecast_batch(coords, chunk=12):
-    """Forecast for many coords per request (one-per-spot -> a few requests).
-    Returns a list of per-location hourly dicts, aligned with coords order.
-    Chunk kept modest so each 7-day multi-location payload returns in time."""
-    h = "wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,uv_index,temperature_2m,precipitation_probability"
-    out = []
-    for ch in _chunks(coords, chunk):
-        lats = ",".join(f"{c[0]}" for c in ch)
-        lngs = ",".join(f"{c[1]}" for c in ch)
-        data = http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lngs}"
-                        f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
-        out.extend(data if isinstance(data, list) else [data])
-    return out
-
-def fetch_open_meteo_marine_batch(coords, chunk=12):
-    """Marine for many coords per request (same idea)."""
-    h = "wave_height,wave_direction,wave_period,sea_surface_temperature,sea_level_height_msl"
-    out = []
-    for ch in _chunks(coords, chunk):
-        lats = ",".join(f"{c[0]}" for c in ch)
-        lngs = ",".join(f"{c[1]}" for c in ch)
-        data = http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lats}&longitude={lngs}"
-                        f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
-        out.extend(data if isinstance(data, list) else [data])
-    return out
-
-
 # ── Slot key builder ──────────────────────────────────────────────────────
 def nz_now(): return datetime.now(NZ_TZ)
 def slot_key(dt_nz): return dt_nz.strftime("%Y-%m-%dT%H")
@@ -369,22 +338,13 @@ def main():
         slot_keys = build_slot_keys()
         today_nz  = nz_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # 2. Open-Meteo - BATCHED (all spots in a few requests, not one-per-spot,
-        # which dodges Open-Meteo throttling of cloud / GitHub-runner IPs).
-        print(f"\n[2/3] Batch-fetching Open-Meteo for {len(spots)} spots…", flush=True)
-        coords = [(s["lineup_lat"], s["lineup_lng"]) for s in spots]
-        om_fc_list  = fetch_open_meteo_forecast_batch(coords)
-        om_mar_list = fetch_open_meteo_marine_batch(coords)
-        if len(om_fc_list) != len(spots) or len(om_mar_list) != len(spots):
-            raise RuntimeError(f"Open-Meteo batch count mismatch fc={len(om_fc_list)} mar={len(om_mar_list)} spots={len(spots)}")
-        om_fc_by_id  = {spots[i]["id"]: om_fc_list[i]  for i in range(len(spots))}
-        om_mar_by_id = {spots[i]["id"]: om_mar_list[i] for i in range(len(spots))}
-        print(f"  ok batched {len(om_fc_list)} forecast + {len(om_mar_list)} marine locations", flush=True)
+        # 2. Open-Meteo + rating per spot
+        print(f"\n[2/3] Fetching per-spot data + computing ratings ({len(spots)} spots)…", flush=True)
         all_rows = []
         for idx, s in enumerate(spots, 1):
             try:
-                om_fc  = om_fc_by_id[s["id"]]
-                om_mar = om_mar_by_id[s["id"]]
+                om_fc = fetch_open_meteo_forecast(s["lineup_lat"], s["lineup_lng"])
+                om_mar = fetch_open_meteo_marine(s["lineup_lat"], s["lineup_lng"])
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
