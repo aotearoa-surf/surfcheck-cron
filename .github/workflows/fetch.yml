@@ -13,7 +13,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 20         # a hang self-kills here (a healthy run is ~5 min)
+    timeout-minutes: 25         # safety cap; a healthy run is ~5 min, slow-API spell a bit more
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

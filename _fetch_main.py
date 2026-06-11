@@ -40,11 +40,13 @@ SG_PARAMS = "waveHeight,swellHeight,swellPeriod,swellDirection,windSpeed,windDir
 SOURCE_PREF = ["ecmwf","sg","noaa","dwd","icon","meteo","smhi"]
 
 
-def http_get(url, headers=None, timeout=60, retries=3, backoff=3):
-    """GET -> JSON with retry on transient network errors (read timeouts,
-    connection resets, 5xx, 429). Recovers the occasional Open-Meteo /
-    Stormglass blip within the same run instead of dropping that spot for the
-    whole 3-hour cycle. Genuine 4xx client errors fail fast (no retry)."""
+def http_get(url, headers=None, timeout=25, retries=2, backoff=2):
+    """GET -> JSON with a SHORT per-attempt timeout + one light retry.
+
+    Open-Meteo / Stormglass normally answer in 1-3 s, so a 25 s ceiling lets a
+    genuinely-stuck spot fail fast (instead of burning 60 s each and blowing the
+    whole-run budget when the API has a slow spell). One retry recovers the
+    common transient blip. Genuine 4xx client errors fail immediately."""
     last = None
     for attempt in range(retries):
         try:
@@ -57,7 +59,7 @@ def http_get(url, headers=None, timeout=60, retries=3, backoff=3):
             if status is not None and 400 <= status < 500 and status != 429:
                 raise
             if attempt < retries - 1:
-                time.sleep(backoff * (attempt + 1))   # 3s, then 6s
+                time.sleep(backoff)   # brief pause before the single retry
     raise last
 
 
