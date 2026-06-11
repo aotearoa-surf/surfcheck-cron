@@ -1,10 +1,11 @@
 name: Forecast fetch (3-hourly)
 
 # Runs the main Stormglass + Open-Meteo forecast cycle and refreshes spot_now.
+# Triggered every 3 hours by an EXTERNAL scheduler (cron-job.org) that POSTs to
+# this workflow's dispatch API — GitHub's own `schedule:` trigger proved
+# unreliable on a new repo, so we drive it externally instead.
 on:
-  schedule:
-    - cron: '23 */3 * * *'     # every 3 hours at :23 past (UTC) — off-peak to avoid GitHub's :00 congestion
-  workflow_dispatch: {}         # adds a manual "Run workflow" button
+  workflow_dispatch: {}         # the external scheduler + the manual "Run workflow" button both use this
 
 concurrency:
   group: fetch-main             # never let two main runs overlap

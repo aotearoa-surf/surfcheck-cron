@@ -1,9 +1,9 @@
 name: Tide fetch (daily)
 
 # Refreshes only the tide columns on existing slot_forecast rows (NIWA).
+# Triggered once a day by the same external scheduler (cron-job.org) via the
+# workflow dispatch API.
 on:
-  schedule:
-    - cron: '23 13 * * *'       # once a day at 13:23 UTC (~1am NZ), off :00 to avoid GitHub congestion
   workflow_dispatch: {}
 
 concurrency:
