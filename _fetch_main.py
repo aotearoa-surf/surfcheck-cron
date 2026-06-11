@@ -40,10 +40,25 @@ SG_PARAMS = "waveHeight,swellHeight,swellPeriod,swellDirection,windSpeed,windDir
 SOURCE_PREF = ["ecmwf","sg","noaa","dwd","icon","meteo","smhi"]
 
 
-def http_get(url, headers=None, timeout=60):
-    r = requests.get(url, headers=headers or {}, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+def http_get(url, headers=None, timeout=60, retries=3, backoff=3):
+    """GET -> JSON with retry on transient network errors (read timeouts,
+    connection resets, 5xx, 429). Recovers the occasional Open-Meteo /
+    Stormglass blip within the same run instead of dropping that spot for the
+    whole 3-hour cycle. Genuine 4xx client errors fail fast (no retry)."""
+    last = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, headers=headers or {}, timeout=timeout)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException as e:
+            last = e
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status is not None and 400 <= status < 500 and status != 429:
+                raise
+            if attempt < retries - 1:
+                time.sleep(backoff * (attempt + 1))   # 3s, then 6s
+    raise last
 
 
 def sb_select(table, params=""):
