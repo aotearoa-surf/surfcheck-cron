@@ -26,4 +26,5 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           STORMGLASS_KEY:       ${{ secrets.STORMGLASS_KEY }}
+          OPEN_METEO_KEY:       ${{ secrets.OPEN_METEO_KEY }}
         run: python -u _fetch_main.py
