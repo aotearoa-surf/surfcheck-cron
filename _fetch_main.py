@@ -305,9 +305,16 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
     for ch in _chunks(coords, chunk):
         lats = ",".join(f"{c[0]}" for c in ch)
         lngs = ",".join(f"{c[1]}" for c in ch)
-        data = http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lngs}"
-                        f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
-        out.extend(data if isinstance(data, list) else [data])
+        try:
+            data = http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lngs}"
+                            f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
+            out.extend(data if isinstance(data, list) else [data])
+        except Exception as e:
+            # One slow/failed chunk must not kill the cycle (2026-06-12, run #12:
+            # a single read-timeout aborted everything). Skipped spots keep their
+            # previous forecast in the DB and refresh next cycle.
+            print(f"  WARN forecast chunk failed ({len(ch)} spots): {str(e)[:120]}", flush=True)
+            out.extend([None] * len(ch))
     return out
 
 def fetch_open_meteo_marine_batch(coords, chunk=12):
@@ -317,9 +324,13 @@ def fetch_open_meteo_marine_batch(coords, chunk=12):
     for ch in _chunks(coords, chunk):
         lats = ",".join(f"{c[0]}" for c in ch)
         lngs = ",".join(f"{c[1]}" for c in ch)
-        data = http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lats}&longitude={lngs}"
-                        f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
-        out.extend(data if isinstance(data, list) else [data])
+        try:
+            data = http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lats}&longitude={lngs}"
+                            f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
+            out.extend(data if isinstance(data, list) else [data])
+        except Exception as e:
+            print(f"  WARN marine chunk failed ({len(ch)} spots): {str(e)[:120]}", flush=True)
+            out.extend([None] * len(ch))
     return out
 
 
@@ -379,16 +390,27 @@ def main():
             raise RuntimeError(f"Open-Meteo batch count mismatch fc={len(om_fc_list)} mar={len(om_mar_list)} spots={len(spots)}")
         om_fc_by_id  = {spots[i]["id"]: om_fc_list[i]  for i in range(len(spots))}
         om_mar_by_id = {spots[i]["id"]: om_mar_list[i] for i in range(len(spots))}
+        _missing = 0
         for _i, _s in enumerate(spots):  # CORRECTNESS GUARD: result order must match spot order
-            _r = om_fc_list[_i]; _rlat = _r.get("latitude"); _rlng = _r.get("longitude")
+            _r = om_fc_list[_i]
+            if _r is None or om_mar_list[_i] is None:
+                _missing += 1
+                continue                 # chunk failed upstream; spot skips this cycle
+            _rlat = _r.get("latitude"); _rlng = _r.get("longitude")
             if _rlat is None or abs(_rlat - _s["lineup_lat"]) > 0.5 or abs(_rlng - _s["lineup_lng"]) > 0.5:
                 raise RuntimeError(f"Open-Meteo batch MISALIGNED at {_s['id']}: got ({_rlat},{_rlng}) vs spot (~{_s['lineup_lat']},{_s['lineup_lng']})")
+        if _missing > len(spots) // 2:
+            raise RuntimeError(f"Open-Meteo mostly down: {_missing}/{len(spots)} spots missing - aborting cycle")
+        if _missing:
+            print(f"  WARN {_missing} spot(s) skipped this cycle (chunk failures); they keep previous data", flush=True)
         print(f"  ok batched {len(om_fc_list)} forecast + {len(om_mar_list)} marine locations", flush=True)
         all_rows = []
         for idx, s in enumerate(spots, 1):
             try:
                 om_fc  = om_fc_by_id[s["id"]]
                 om_mar = om_mar_by_id[s["id"]]
+                if om_fc is None or om_mar is None:
+                    continue             # chunk failed; previous rows stay current
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
