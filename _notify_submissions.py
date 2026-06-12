@@ -21,8 +21,11 @@ except ImportError:
 URL = os.environ["SUPABASE_URL"].rstrip("/")
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
 H = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
-GMAIL_USER = os.environ["GMAIL_USER"]
-GMAIL_PASS = os.environ["GMAIL_APP_PASSWORD"]
+# Sent from the site's own hosting mailbox so Gmail does NOT treat the digest
+# as self-sent mail (which silently skips the Inbox - found 2026-06-13).
+SMTP_HOST = os.environ.get("SMTP_HOST", "mail.surfcheck.nz")
+SMTP_USER = os.environ.get("SMTP_USER", "noreply@surfcheck.nz")
+SMTP_PASS = os.environ["SMTP_PASSWORD"]
 NOTIFY_TO = os.environ.get("NOTIFY_TO", "surf@aotearoasurf.co.nz")
 
 TYPE_LABEL = {
@@ -78,13 +81,12 @@ def main():
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = f"SurfCheck: {n} new submission{'s' if n != 1 else ''}" \
                      + (" incl WEBCAM" if any(s["type"] == "webcam" for s in subs) else "")
-    msg["From"] = GMAIL_USER
+    msg["From"] = f"SurfCheck <{SMTP_USER}>"
     msg["To"] = NOTIFY_TO
 
-    s = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
-    s.starttls()
-    s.login(GMAIL_USER, GMAIL_PASS)
-    s.sendmail(GMAIL_USER, [NOTIFY_TO], msg.as_string())
+    s = smtplib.SMTP_SSL(SMTP_HOST, 465, timeout=30)
+    s.login(SMTP_USER, SMTP_PASS)
+    s.sendmail(SMTP_USER, [NOTIFY_TO], msg.as_string())
     s.quit()
     print(f"emailed digest of {n} submission(s) to {NOTIFY_TO}", flush=True)
 
