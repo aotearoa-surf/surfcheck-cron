@@ -10,6 +10,8 @@ Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD,
 """
 import io, sys, os, smtplib, requests
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 
 try:
@@ -58,12 +60,39 @@ def fmt(s):
     if s.get("video_url"):
         lines.append(f"  Video link: {s['video_url']}")
     if s.get("image_path"):
-        lines.append(f"  Photo: (private bucket) {s['image_path']} - view via _submissions.py show {s['id']}")
+        if s.get("_signed_url"):
+            lines.append(f"  Photo: attached below - full size (link valid 7 days): {s['_signed_url']}")
+        else:
+            lines.append(f"  Photo: {s['image_path']} (sign failed - view via _submissions.py show {s['id']})")
     who = s.get("name") or "Anonymous"
     if s.get("email"):
         who += f" <{s['email']}> (wants a reply)"
     lines.append(f"  From: {who}")
     return "\n".join(lines)
+
+
+MAX_ATTACH = 5            # at most this many photo attachments per digest
+MAX_ATTACH_BYTES = 3_000_000
+
+
+def sign_and_fetch(path):
+    """7-day signed URL + image bytes for an uploaded photo (service key)."""
+    signed = None
+    try:
+        r = requests.post(f"{URL}/storage/v1/object/sign/submissions/{path}",
+                          headers=H, json={"expiresIn": 604800}, timeout=30)
+        if r.ok:
+            signed = f"{URL}/storage/v1{r.json()['signedURL']}"
+    except Exception:
+        pass
+    blob = None
+    try:
+        r = requests.get(f"{URL}/storage/v1/object/submissions/{path}", headers=H, timeout=60)
+        if r.ok and len(r.content) <= MAX_ATTACH_BYTES:
+            blob = r.content
+    except Exception:
+        pass
+    return signed, blob
 
 
 def main():
@@ -72,13 +101,31 @@ def main():
         print("no new submissions", flush=True)
         return
 
+    # Photos: signed link in the body for all, attachment for the first few,
+    # so Che can review media for publishing straight from the inbox.
+    attachments = []
+    for s in subs:
+        if s.get("image_path"):
+            signed, blob = sign_and_fetch(s["image_path"])
+            s["_signed_url"] = signed
+            if blob is not None and len(attachments) < MAX_ATTACH:
+                attachments.append((f"submission-{s['id']}.jpg", blob))
+
     n = len(subs)
     body = (f"{n} new submission{'s' if n != 1 else ''} on SurfCheck.nz\n"
             + "=" * 50 + "\n\n"
             + "\n\n".join(fmt(s) for s in subs)
             + "\n\n" + "=" * 50
             + "\nTriage: python _submissions.py list   (in the site repo)\n")
-    msg = MIMEText(body, "plain", "utf-8")
+    if attachments:
+        msg = MIMEMultipart()
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+        for fname, blob in attachments:
+            img = MIMEImage(blob, name=fname)
+            img.add_header("Content-Disposition", "attachment", filename=fname)
+            msg.attach(img)
+    else:
+        msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = f"SurfCheck: {n} new submission{'s' if n != 1 else ''}" \
                      + (" incl WEBCAM" if any(s["type"] == "webcam" for s in subs) else "")
     msg["From"] = f"SurfCheck <{SMTP_USER}>"
