@@ -13,6 +13,18 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+NZ = ZoneInfo("Pacific/Auckland")
+
+
+def nz_time(iso_utc):
+    """ISO UTC timestamp -> NZ display, e.g. '12 Jun 2026 11:27 PM NZT'."""
+    try:
+        dt = datetime.fromisoformat(iso_utc.replace("Z", "+00:00"))
+        return dt.astimezone(NZ).strftime("%d %b %Y %I:%M %p NZT")
+    except Exception:
+        return iso_utc
 
 try:
     from dotenv import load_dotenv
@@ -48,7 +60,7 @@ def fetch_new():
 
 
 def fmt(s):
-    lines = [f"#{s['id']} · {TYPE_LABEL.get(s['type'], s['type'].upper())} · {s['created_at'][:16].replace('T', ' ')} UTC"]
+    lines = [f"#{s['id']} · {TYPE_LABEL.get(s['type'], s['type'].upper())} · {nz_time(s['created_at'])}"]
     where = s.get("page_type") or "?"
     if s.get("entity_id"):
         where += f": {s['entity_id']}"
@@ -126,8 +138,13 @@ def main():
             msg.attach(img)
     else:
         msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = f"SurfCheck: {n} new submission{'s' if n != 1 else ''}" \
-                     + (" incl WEBCAM" if any(s["type"] == "webcam" for s in subs) else "")
+    # Unique subject per digest (id range + NZ timestamp) so Gmail never
+    # threads digests into one conversation (Che 2026-06-13).
+    nz_now = datetime.now(NZ).strftime("%d %b %I:%M %p")
+    ids_label = f"#{subs[0]['id']}" if n == 1 else f"#{subs[0]['id']}-#{subs[-1]['id']}"
+    msg["Subject"] = (f"SurfCheck: {n} new submission{'s' if n != 1 else ''} {ids_label}"
+                      + (" incl WEBCAM" if any(s["type"] == "webcam" for s in subs) else "")
+                      + f" · {nz_now}")
     msg["From"] = f"SurfCheck <{SMTP_USER}>"
     msg["To"] = NOTIFY_TO
 
