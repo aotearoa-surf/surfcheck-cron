@@ -39,6 +39,10 @@ OM_KEY = os.environ["OPEN_METEO_KEY"]
 NZ_TZ  = timezone(timedelta(hours=12))
 SG_PARAMS = "waveHeight,swellHeight,swellPeriod,swellDirection,windSpeed,windDirection"
 SOURCE_PREF = ["ecmwf","sg","noaa","dwd","icon","meteo","smhi"]
+# Our sources report a MEAN swell period (Tm); surf forecasts (Surfline etc.) show
+# PEAK period (Tp). Tp ~ 1.2 * Tm is the textbook ratio, so we convert once at fetch
+# to match them (and stop under-rating clean long-period swells). (Che 2026-06-25)
+PEAK_PERIOD_FACTOR = 1.2
 
 
 def http_get(url, headers=None, timeout=25, retries=2, backoff=2):
@@ -227,10 +231,12 @@ def classify_wave_type(kt, cls):
     return "Messy"
 
 def score_to_label(s):
-    if s < 2: return "Flat"
-    if s < 4: return "Poor"
-    if s < 6: return "Fair"
-    if s < 8: return "Good"
+    if s < 2:   return "Flat"
+    if s < 4:   return "Grim"
+    if s < 5:   return "Poor"
+    if s < 6:   return "Fair"
+    if s < 7.5: return "Good"
+    if s < 8.5: return "Mint"
     return "Epic"
 
 DIR_CHARS = ["N","NE","E","SE","S","SW","W","NW"]
@@ -246,8 +252,13 @@ def compute_rating(slot, spot):
     sc = size_score(slot.get("wave_m"), sz)
     p  = period_score(slot.get("period_s"))
     sd = swell_dir_score(slot.get("swell_deg"), win)
-    # Original additive model (reverted 2026-06-09 at Che's request). No gates.
+    # Original additive model (reverted 2026-06-09 at Che's request).
     score = 0.40*w + 0.30*sc + 0.15*p + 0.15*sd
+    # Rideability gate (Che 2026-06-25): a wave of 0.2m or less is nothing to ride,
+    # so force Flat (score 0) no matter how good the wind / period / swell window are.
+    # Without this, a glassy light-offshore day on a tiny swell floats up to Fair/Good.
+    if slot.get("wave_m") is not None and slot["wave_m"] <= 0.2:
+        score = 0.0
     wd_cls = classify_wind_dir(off, slot.get("wind_deg"))
     wd_str = classify_wind_strength(slot.get("wind_kt"))
     wt = classify_wave_type(slot.get("wind_kt"), wd_cls)
@@ -287,7 +298,7 @@ def fetch_open_meteo_forecast(lat, lng):
                     f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
 
 def fetch_open_meteo_marine(lat, lng):
-    h = "wave_height,wave_direction,wave_period,sea_surface_temperature,sea_level_height_msl"
+    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature,sea_level_height_msl"
     return http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}"
                     f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
 
@@ -319,7 +330,7 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
 
 def fetch_open_meteo_marine_batch(coords, chunk=12):
     """Marine for many coords per request (same idea)."""
-    h = "wave_height,wave_direction,wave_period,sea_surface_temperature,sea_level_height_msl"
+    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature,sea_level_height_msl"
     out = []
     for ch in _chunks(coords, chunk):
         lats = ",".join(f"{c[0]}" for c in ch)
@@ -441,8 +452,13 @@ def main():
                     if wave_m is None and mi is not None:
                         wave_m = om_mar["hourly"]["wave_height"][mi]
                     if period_s is None and mi is not None:
-                        wp = om_mar["hourly"].get("wave_period")
+                        wp = om_mar["hourly"].get("swell_wave_period")
                         period_s = wp[mi] if wp else None
+                    # Mean swell period -> peak period (Tp ~ 1.2 * Tm) so our numbers match
+                    # peak-period surf forecasts (Surfline etc.). Both sources give a mean
+                    # period, so convert once here regardless of which one supplied it.
+                    if period_s is not None:
+                        period_s = round(period_s * PEAK_PERIOD_FACTOR, 1)
                     if swell_deg is None and mi is not None:
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
