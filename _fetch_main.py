@@ -146,13 +146,10 @@ def wind_score(off_deg, kt, wd):
     glassy + just enough offshore to clean the face.
     """
     if kt is None: return 5
+    kmh = kt * 1.852
+    band = 0 if kmh < 5 else 1 if kmh < 12 else 2 if kmh < 25 else 3 if kmh < 35 else 4
     if off_deg is None or wd is None:
-        # Fallback when we don't know the spot's offshore direction —
-        # treat as cross-shore (neutral).
-        if kt < 8:  return 6
-        if kt < 12: return 5
-        if kt < 20: return 3
-        return 1
+        return [7, 6, 4, 3, 0][band]   # unknown offshore: treat as cross-shore (neutral)
     d = angle_delta(wd, off_deg)
     if   d <= 30:  cat = "off"
     elif d <= 60:  cat = "cross_off"
@@ -160,14 +157,13 @@ def wind_score(off_deg, kt, wd):
     elif d <= 150: cat = "cross_on"
     else:          cat = "on"
     table = {
-        "off":       [9, 8, 7, 4],
-        "cross_off": [8, 7, 5, 2],
-        "cross":     [6, 5, 3, 1],
-        "cross_on":  [5, 3, 2, 1],
-        "on":        [4, 2, 1, 0],
+        "off":       [9, 8, 7, 6, 3],
+        "cross_off": [9, 7, 7, 5, 2],
+        "cross":     [7, 6, 4, 3, 0],
+        "cross_on":  [6, 5, 2, 1, 0],
+        "on":        [6, 4, 1, 0, 0],
     }
-    idx = 0 if kt < 8 else 1 if kt < 12 else 2 if kt < 20 else 3
-    return table[cat][idx]
+    return table[cat][band]
 
 def size_score(w, sz):
     if w is None: return 5
@@ -211,9 +207,11 @@ def classify_wind_dir(off, wd):
 def classify_wind_strength(kt):
     """Speed buckets aligned with wind_score: <5 Calm, <12 Light, <20 Moderate, 20+ Strong."""
     if kt is None: return None
-    if kt < 5: return "Calm"
-    if kt < 12: return "Light"
-    if kt < 20: return "Moderate"
+    kmh = kt * 1.852
+    if kmh < 5:  return "Calm"
+    if kmh < 12: return "Light"
+    if kmh < 25: return "Moderate"
+    if kmh < 35: return "Fresh"
     return "Strong"
 
 def classify_wave_type(kt, cls):
