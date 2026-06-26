@@ -246,8 +246,8 @@ def score_to_label(s):
     if s < 4:   return "Grim"
     if s < 5:   return "Poor"
     if s < 6:   return "Fair"
-    if s < 7.5: return "Good"
-    if s < 8.5: return "Mint"
+    if s < 7.3: return "Good"
+    if s < 8.3: return "Mint"
     return "Epic"
 
 DIR_CHARS = ["N","NE","E","SE","S","SW","W","NW"]
