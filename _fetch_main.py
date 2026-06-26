@@ -194,11 +194,18 @@ def period_score(p):
     return 10.0
 
 def swell_dir_score(sd, wd):
+    """Smooth (interpolated) swell-window alignment so a few degrees can't flip a tier.
+    Was stepped 9/6/3 at 30/60deg; a 28deg and 32deg swell both show e.g. 'E' but scored
+    9 vs 6. Anchored to the old band centres, ~distribution-neutral (2026-06-27)."""
     if wd is None or sd is None: return 7
     d = angle_delta(sd, wd)
-    if d <= 30: return 9
-    if d <= 60: return 6
-    return 3
+    pts = ((15, 9), (45, 6), (75, 3))
+    if d <= pts[0][0]: return 9.0
+    if d >= pts[-1][0]: return 3.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if d <= x1:
+            return round(y0 + (y1 - y0) * (d - x0) / (x1 - x0), 2)
+    return 3.0
 
 def classify_wind_dir(off, wd):
     """Five-category classification matching wind_score's bins."""
