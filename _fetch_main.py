@@ -180,12 +180,18 @@ def size_score(w, sz):
     return max(2, 7 - 4*over)
 
 def period_score(p):
+    """Smooth (interpolated) period quality so a sub-second change can't flip a tier.
+    Was stepped 3/5/7/9/10 at 6/8/10/13s, which jumped under whole-second display
+    rounding (a 9.7s and a 10.0s both show '10s' but scored 7 vs 9). Anchored to the
+    old band centres, so the overall distribution is ~unchanged (2026-06-27)."""
     if p is None: return 5
-    if p < 6: return 3
-    if p < 8: return 5
-    if p < 10: return 7
-    if p < 13: return 9
-    return 10
+    pts = ((5, 3), (7, 5), (9, 7), (11.5, 9), (14, 10))
+    if p <= pts[0][0]: return 3.0
+    if p >= pts[-1][0]: return 10.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if p <= x1:
+            return round(y0 + (y1 - y0) * (p - x0) / (x1 - x0), 2)
+    return 10.0
 
 def swell_dir_score(sd, wd):
     if wd is None or sd is None: return 7
