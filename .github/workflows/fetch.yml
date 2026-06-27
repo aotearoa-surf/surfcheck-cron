@@ -36,8 +36,11 @@ jobs:
         continue-on-error: true
         run: |
           echo "Purging Cloudflare cache after forecast write..."
+          # Strip ALL whitespace from the token: a pasted secret often carries a
+          # trailing newline, which makes CF return code 10000 "Authentication error".
+          TOKEN=$(printf '%s' "${{ secrets.CLOUDFLARE_API_TOKEN }}" | tr -d '[:space:]')
           resp=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/7c9c444a4050806c7ef37f2697628193/purge_cache" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}')
           echo "$resp"
