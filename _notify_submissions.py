@@ -37,10 +37,14 @@ KEY = os.environ["SUPABASE_SERVICE_KEY"]
 H = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
 # Sent from the site's own hosting mailbox so Gmail does NOT treat the digest
 # as self-sent mail (which silently skips the Inbox - found 2026-06-13).
-SMTP_HOST = os.environ.get("SMTP_HOST", "mail.surfcheck.nz")
-SMTP_USER = os.environ.get("SMTP_USER", "noreply@surfcheck.nz")
-SMTP_PASS = os.environ["SMTP_PASSWORD"]
-NOTIFY_TO = os.environ.get("NOTIFY_TO", "surf@aotearoasurf.co.nz")
+SMTP_HOST = os.environ.get("SMTP_HOST", "mail.surfcheck.nz").strip()
+SMTP_USER = os.environ.get("SMTP_USER", "noreply@surfcheck.nz").strip()
+# .strip() the password: pasted GitHub secrets often carry a trailing newline,
+# which makes SMTP AUTH fail (the verified mailbox password is clean, so a
+# trailing \n on the secret was the cron's silent email failure). Same gotcha
+# that hit the CF token + Supabase key.
+SMTP_PASS = os.environ["SMTP_PASSWORD"].strip()
+NOTIFY_TO = os.environ.get("NOTIFY_TO", "surf@aotearoasurf.co.nz").strip()
 
 TYPE_LABEL = {
     "error": "ERROR REPORT", "update": "UPDATE SUGGESTION", "media": "PHOTO/VIDEO",
