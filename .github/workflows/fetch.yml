@@ -28,6 +28,20 @@ jobs:
           STORMGLASS_KEY:       ${{ secrets.STORMGLASS_KEY }}
           OPEN_METEO_KEY:       ${{ secrets.OPEN_METEO_KEY }}
         run: python -u _fetch_main.py
+      - name: Purge Cloudflare cache (serve the fresh forecast immediately)
+        # Runs only if the fetch succeeded, so we never purge to an empty/failed
+        # state. The /sb read-through cache otherwise keeps serving the previous
+        # cycle until it ages out, which can lag hours behind this 3-hourly write.
+        if: success()
+        continue-on-error: true
+        run: |
+          echo "Purging Cloudflare cache after forecast write..."
+          resp=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/7c9c444a4050806c7ef37f2697628193/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          echo "$resp"
+          echo "$resp" | python -c "import sys,json; r=json.load(sys.stdin); print('Cloudflare purge OK' if r.get('success') else 'Cloudflare purge FAILED'); sys.exit(0 if r.get('success') else 1)"
       - name: Email new community submissions
         if: always()
         continue-on-error: true
