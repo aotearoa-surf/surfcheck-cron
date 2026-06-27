@@ -34,11 +34,15 @@ jobs:
         # cycle until it ages out, which can lag hours behind this 3-hourly write.
         if: success()
         continue-on-error: true
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           echo "Purging Cloudflare cache after forecast write..."
-          # Strip ALL whitespace from the token: a pasted secret often carries a
-          # trailing newline, which makes CF return code 10000 "Authentication error".
-          TOKEN=$(printf '%s' "${{ secrets.CLOUDFLARE_API_TOKEN }}" | tr -d '[:space:]')
+          # Pass the secret via env so a newline/multi-line value can't mangle the
+          # generated script, then strip whitespace before use. The diag line prints
+          # only lengths (never the value) so we can confirm the token arrived.
+          TOKEN=$(printf '%s' "$CF_TOKEN" | tr -d '[:space:]')
+          echo "diag: raw token length=${#CF_TOKEN}  stripped length=${#TOKEN}"
           resp=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/7c9c444a4050806c7ef37f2697628193/purge_cache" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
