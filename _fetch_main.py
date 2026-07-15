@@ -300,6 +300,30 @@ def pick_sg(v):
         if isinstance(val, (int, float)): return val
     return None
 
+# Display-only swell breakdown (groundswell / 2nd swell / wind-wave). These are
+# DISPLAY fields — wave_m/period_s/swell_deg keep their calibrated per-field sourcing.
+# Pull the whole breakdown from ONE model so the parts are internally consistent
+# (otherwise e.g. groundswell comes from a different model than wind-wave and the
+# two-tone split is meaningless). Prefer a source carrying the full partition set.
+PARTITION_SRC_PREF = ["sg", "noaa", "dwd", "icon", "meteo", "ecmwf", "smhi"]
+_PARTITION_FIELDS = ("swellHeight", "secondarySwellHeight", "secondarySwellPeriod",
+                     "secondarySwellDirection", "windWaveHeight")
+
+def pick_partition_source(hour):
+    best = None
+    for src in PARTITION_SRC_PREF:
+        vals = {}
+        for f in _PARTITION_FIELDS:
+            v = hour.get(f)
+            if isinstance(v, dict) and isinstance(v.get(src), (int, float)):
+                vals[f] = v[src]
+        if "swellHeight" in vals:
+            if "secondarySwellHeight" in vals:
+                return vals            # full set from one model — use it
+            if best is None:
+                best = vals            # fallback: has swell but no 2nd
+    return best or {}
+
 def fetch_stormglass(lat, lng):
     now = int(time.time())
     qs = f"lat={lat}&lng={lng}&params={SG_PARAMS}&start={now}&end={now + 7*86400}"
@@ -464,17 +488,19 @@ def main():
                         if raw is not None: wave_m = raw * factor
                         period_s = pick_sg(sg["hours"][si].get("swellPeriod"))
                         swell_deg = pick_sg(sg["hours"][si].get("swellDirection"))
-                        # Swell partitions for the two-tone bar (ground vs wind) + 2nd-swell row.
-                        # Heights scaled by the spot's adjustment_factor like wave_m so they stay
-                        # consistent with the total. Secondary period gets the same Tm->Tp x1.2.
-                        prim_swell_h = pick_sg(sg["hours"][si].get("swellHeight"))
+                        # Swell breakdown for the two-tone bar (ground vs wind) + 2nd-swell row.
+                        # DISPLAY-ONLY: single-sourced from one model so the parts reconcile.
+                        # Heights scaled by the spot's adjustment_factor like wave_m; secondary
+                        # period gets the same Tm->Tp x1.2. swellHeight = combined swell (ground).
+                        part = pick_partition_source(sg["hours"][si])
+                        prim_swell_h = part.get("swellHeight")
                         if prim_swell_h is not None: prim_swell_h = round(prim_swell_h * factor, 2)
-                        sec_swell_h = pick_sg(sg["hours"][si].get("secondarySwellHeight"))
+                        sec_swell_h = part.get("secondarySwellHeight")
                         if sec_swell_h is not None: sec_swell_h = round(sec_swell_h * factor, 2)
-                        sec_p = pick_sg(sg["hours"][si].get("secondarySwellPeriod"))
+                        sec_p = part.get("secondarySwellPeriod")
                         if sec_p is not None: sec_swell_period = round(sec_p * PEAK_PERIOD_FACTOR, 1)
-                        sec_swell_deg = pick_sg(sg["hours"][si].get("secondarySwellDirection"))
-                        windwave_h = pick_sg(sg["hours"][si].get("windWaveHeight"))
+                        sec_swell_deg = part.get("secondarySwellDirection")
+                        windwave_h = part.get("windWaveHeight")
                         if windwave_h is not None: windwave_h = round(windwave_h * factor, 2)
                     if wave_m is None and mi is not None:
                         wave_m = om_mar["hourly"]["wave_height"][mi]
