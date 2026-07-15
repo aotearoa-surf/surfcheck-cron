@@ -5,6 +5,7 @@ running daily, since tides barely change between forecast updates).
 
 Updates the following slot_forecast columns:
   wave_m, wind_kt, wind_deg, wind_gust, period_s, swell_deg,
+  prim_swell_h, sec_swell_h, sec_swell_period, sec_swell_deg, windwave_h,
   weather_code, air_c, water_c, precip_pct, uv,
   rating_score, rating_label, rating_wave_type,
   rating_wind_class, rating_wind_strength, rating_reason,
@@ -37,7 +38,9 @@ SB_HEADERS_RETURN = {**SB_HEADERS, "Prefer": "return=representation"}
 SG_KEY = os.environ["STORMGLASS_KEY"]
 OM_KEY = os.environ["OPEN_METEO_KEY"]
 NZ_TZ  = timezone(timedelta(hours=12))
-SG_PARAMS = "waveHeight,swellHeight,swellPeriod,swellDirection,windSpeed,windDirection"
+SG_PARAMS = ("waveHeight,swellHeight,swellPeriod,swellDirection,"
+            "secondarySwellHeight,secondarySwellPeriod,secondarySwellDirection,"
+            "windWaveHeight,windSpeed,windDirection")
 SOURCE_PREF = ["ecmwf","sg","noaa","dwd","icon","meteo","smhi"]
 # Our sources report a MEAN swell period (Tm); surf forecasts (Surfline etc.) show
 # PEAK period (Tp). Tp ~ 1.2 * Tm is the textbook ratio, so we convert once at fetch
@@ -455,11 +458,24 @@ def main():
                 for key in slot_keys:
                     fi = fc_idx.get(key); mi = mar_idx.get(key); si = sg_idx.get(key)
                     wave_m = period_s = swell_deg = None
+                    prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
                     if sg and si is not None:
                         raw = pick_sg(sg["hours"][si].get("waveHeight"))
                         if raw is not None: wave_m = raw * factor
                         period_s = pick_sg(sg["hours"][si].get("swellPeriod"))
                         swell_deg = pick_sg(sg["hours"][si].get("swellDirection"))
+                        # Swell partitions for the two-tone bar (ground vs wind) + 2nd-swell row.
+                        # Heights scaled by the spot's adjustment_factor like wave_m so they stay
+                        # consistent with the total. Secondary period gets the same Tm->Tp x1.2.
+                        prim_swell_h = pick_sg(sg["hours"][si].get("swellHeight"))
+                        if prim_swell_h is not None: prim_swell_h = round(prim_swell_h * factor, 2)
+                        sec_swell_h = pick_sg(sg["hours"][si].get("secondarySwellHeight"))
+                        if sec_swell_h is not None: sec_swell_h = round(sec_swell_h * factor, 2)
+                        sec_p = pick_sg(sg["hours"][si].get("secondarySwellPeriod"))
+                        if sec_p is not None: sec_swell_period = round(sec_p * PEAK_PERIOD_FACTOR, 1)
+                        sec_swell_deg = pick_sg(sg["hours"][si].get("secondarySwellDirection"))
+                        windwave_h = pick_sg(sg["hours"][si].get("windWaveHeight"))
+                        if windwave_h is not None: windwave_h = round(windwave_h * factor, 2)
                     if wave_m is None and mi is not None:
                         wave_m = om_mar["hourly"]["wave_height"][mi]
                     if period_s is None and mi is not None:
@@ -498,6 +514,9 @@ def main():
                         "day_offset": day_offset,
                         "wave_m": wave_m, "wind_kt": wind_kt, "wind_deg": wind_deg,
                         "wind_gust": wind_gust, "period_s": period_s, "swell_deg": swell_deg,
+                        "prim_swell_h": prim_swell_h, "sec_swell_h": sec_swell_h,
+                        "sec_swell_period": sec_swell_period, "sec_swell_deg": sec_swell_deg,
+                        "windwave_h": windwave_h,
                         "weather_code": wcode, "air_c": air_c, "water_c": water_c,
                         "precip_pct": precip, "uv": uv,
                         "fetched_at": cycle_fetched_at,
