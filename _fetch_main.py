@@ -273,6 +273,16 @@ def compute_rating(slot, spot):
     # Without this, a glassy light-offshore day on a tiny swell floats up to Fair/Good.
     if slot.get("wave_m") is not None and slot["wave_m"] <= 0.2:
         score = 0.0
+    # Wave-size ceilings (Che 2026-07-17): a top label must be backed by real size.
+    # Perfect-but-small days cap at the band the wave qualifies for; the score is
+    # capped (not just the label) so the number always sits inside its band on
+    # every surface. <0.5m tops out at Fair 6.4; <0.7m at Good 7.7; <1.0m at
+    # Mint 8.4; Epic (8.5+) requires 1.0m+ of swell.
+    elif slot.get("wave_m") is not None:
+        wm = slot["wave_m"]
+        if   wm < 0.5: score = min(score, 6.4)
+        elif wm < 0.7: score = min(score, 7.7)
+        elif wm < 1.0: score = min(score, 8.4)
     wd_cls = classify_wind_dir(off, slot.get("wind_deg"))
     wd_str = classify_wind_strength(slot.get("wind_kt"))
     wt = classify_wave_type(slot.get("wind_kt"), wd_cls)
