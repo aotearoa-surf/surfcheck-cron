@@ -522,6 +522,20 @@ def main():
                     # period, so convert once here regardless of which one supplied it.
                     if period_s is not None:
                         period_s = round(period_s * PEAK_PERIOD_FACTOR, 1)
+                    # Energy-weighted dominant swell (Che 2026-07-17): Stormglass ranks
+                    # partitions by HEIGHT, so a short local wind-slop can out-rank the
+                    # groundswell (Te Arai showing "3s S" while Surfline shows "16s E").
+                    # Promote by energy (h^2 x period) instead, like Surfline/LOTUS.
+                    # When the secondary wins, swap the partitions so the table's Period
+                    # row, 2nd-swell row, ratings and SurfGuru all stay consistent.
+                    # Flips ~5% of slots; both periods are already Tp-scaled here.
+                    if (prim_swell_h is not None and sec_swell_h is not None
+                            and sec_swell_period is not None and period_s is not None
+                            and sec_swell_h * sec_swell_h * sec_swell_period
+                                > prim_swell_h * prim_swell_h * period_s):
+                        period_s, sec_swell_period = sec_swell_period, period_s
+                        swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
+                        prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
                     if swell_deg is None and mi is not None:
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
