@@ -346,7 +346,7 @@ def fetch_open_meteo_forecast(lat, lng):
                     f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
 
 def fetch_open_meteo_marine(lat, lng):
-    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature,sea_level_height_msl"
+    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature"
     return http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}"
                     f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
 
@@ -378,7 +378,7 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
 
 def fetch_open_meteo_marine_batch(coords, chunk=12):
     """Marine for many coords per request (same idea)."""
-    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature,sea_level_height_msl"
+    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature"
     out = []
     for ch in _chunks(coords, chunk):
         lats = ",".join(f"{c[0]}" for c in ch)
