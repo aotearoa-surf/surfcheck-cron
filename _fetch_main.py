@@ -247,10 +247,10 @@ def classify_wave_type(kt, cls):
 def score_to_label(s):
     if s < 2:   return "Flat"
     if s < 4:   return "Grim"
-    if s < 5:   return "Poor"
-    if s < 6:   return "Fair"
-    if s < 7.3: return "Good"
-    if s < 8.3: return "Mint"
+    if s < 5.5: return "Poor"
+    if s < 6.5: return "Fair"
+    if s < 7.8: return "Good"
+    if s < 8.5: return "Mint"
     return "Epic"
 
 DIR_CHARS = ["N","NE","E","SE","S","SW","W","NW"]
