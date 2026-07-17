@@ -436,6 +436,14 @@ def main():
                 errors += 1
                 sg_by_pin[p["id"]] = None
 
+        # Stormglass mostly down (quota 402s etc.) -> abort BEFORE any writes so
+        # the previous cycle's Stormglass data survives in the DB. Mirrors the
+        # Open-Meteo half-down guard below. (Che 2026-07-18: stale Stormglass
+        # beats fresh Open-Meteo marine, always.)
+        sg_failed = sum(1 for v in sg_by_pin.values() if v is None)
+        if pins and sg_failed > len(pins) // 2:
+            raise RuntimeError(f"Stormglass mostly down: {sg_failed}/{len(pins)} pins failed - aborting cycle, keeping previous data")
+
         slot_keys = build_slot_keys()
         today_nz  = nz_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -473,7 +481,8 @@ def main():
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
-                if s["calibrated"] and s["pin_id"] and sg_by_pin.get(s["pin_id"]):
+                sg_expected = bool(s["calibrated"] and s["pin_id"])
+                if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
                 factor = s.get("adjustment_factor") or 1.0
 
@@ -512,9 +521,17 @@ def main():
                         sec_swell_deg = part.get("secondarySwellDirection")
                         windwave_h = part.get("windWaveHeight")
                         if windwave_h is not None: windwave_h = round(windwave_h * factor, 2)
+                    # Calibrated spots are Stormglass-ONLY for marine fields: no
+                    # Open-Meteo fallback for wave/period/direction/partitions.
+                    # Missing Stormglass -> skip the row entirely so the previous
+                    # cycle's Stormglass data stays in the DB. (Che 2026-07-18:
+                    # "I never want to use open meteo for this data - I would
+                    # rather have stale SG data in the database".)
+                    if sg_expected and wave_m is None:
+                        continue
                     if wave_m is None and mi is not None:
-                        wave_m = om_mar["hourly"]["wave_height"][mi]
-                    if period_s is None and mi is not None:
+                        wave_m = om_mar["hourly"]["wave_height"][mi] * factor
+                    if period_s is None and not sg_expected and mi is not None:
                         wp = om_mar["hourly"].get("swell_wave_period")
                         period_s = wp[mi] if wp else None
                     # Mean swell period -> peak period (Tp ~ 1.2 * Tm) so our numbers match
@@ -536,7 +553,7 @@ def main():
                         period_s, sec_swell_period = sec_swell_period, period_s
                         swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
                         prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
-                    if swell_deg is None and mi is not None:
+                    if swell_deg is None and not sg_expected and mi is not None:
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
 
