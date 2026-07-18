@@ -278,10 +278,15 @@ def compute_rating(slot, spot):
     # capped (not just the label) so the number always sits inside its band on
     # every surface. <0.5m tops out at Fair 6.4; <0.7m at Good 7.7; <1.0m at
     # Mint 8.4; Epic (8.5+) requires 1.0m+ of swell.
+    # Long-period lift (Che 2026-07-18): 12s+ groundswell punches above its
+    # height (validated at Te Arai on a 0.4-0.6m 14s day that surfed Good),
+    # so each ceiling lifts ONE band when period_s >= 12. The Epic floor is
+    # NOT liftable: under 1.0m still caps at Mint 8.4 whatever the period.
     elif slot.get("wave_m") is not None:
         wm = slot["wave_m"]
-        if   wm < 0.5: score = min(score, 6.4)
-        elif wm < 0.7: score = min(score, 7.7)
+        long_p = slot.get("period_s") is not None and slot["period_s"] >= 12
+        if   wm < 0.5: score = min(score, 7.7 if long_p else 6.4)
+        elif wm < 0.7: score = min(score, 8.4 if long_p else 7.7)
         elif wm < 1.0: score = min(score, 8.4)
     wd_cls = classify_wind_dir(off, slot.get("wind_deg"))
     wd_str = classify_wind_strength(slot.get("wind_kt"))
