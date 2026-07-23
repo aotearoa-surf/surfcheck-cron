@@ -503,8 +503,22 @@ def main():
                         utc = datetime.fromisoformat(h["time"].replace("Z","+00:00"))
                         sg_idx[slot_key(utc.astimezone(NZ_TZ))] = i
 
+                # The slot currently in progress (e.g. the 12pm slot at 3pm).
+                # Stormglass only returns hours from NOW forward, so once a
+                # slot's start hour has passed it has no exact SG index and
+                # (since the SG-only guard) would be skipped, freezing the
+                # "Right now" banner at up to 6h old. For the CURRENT slot
+                # only, fall back to the first SG hour of this response
+                # (conditions right now), so every cycle re-forecasts the
+                # in-progress session and "Updated Xh ago" tracks the cycle.
+                _now_nz = nz_now()
+                cur_slot = slot_key(_now_nz.replace(hour=(_now_nz.hour // 6) * 6,
+                                                    minute=0, second=0, microsecond=0))
+
                 for key in slot_keys:
                     fi = fc_idx.get(key); mi = mar_idx.get(key); si = sg_idx.get(key)
+                    if si is None and key == cur_slot and sg and sg.get("hours"):
+                        si = 0
                     wave_m = period_s = swell_deg = None
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
                     if sg and si is not None:
