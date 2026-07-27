@@ -26,3 +26,11 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NIWA_KEY:             ${{ secrets.NIWA_KEY }}
         run: python -u _fetch_tides.py
+
+      - name: Email on failure
+        if: failure()
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WF_NAME: "Tide fetch (daily)"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python _notify_fail.py

@@ -28,6 +28,14 @@ jobs:
           STORMGLASS_KEY:       ${{ secrets.STORMGLASS_KEY }}
           OPEN_METEO_KEY:       ${{ secrets.OPEN_METEO_KEY }}
         run: python -u _fetch_main.py
+
+      - name: Email on failure
+        if: failure()
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WF_NAME: "Forecast fetch (3-hourly)"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python _notify_fail.py
       - name: Purge Cloudflare cache (serve the fresh forecast immediately)
         # Runs only if the fetch succeeded, so we never purge to an empty/failed
         # state. The /sb read-through cache otherwise keeps serving the previous
