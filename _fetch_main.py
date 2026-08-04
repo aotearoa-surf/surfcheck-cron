@@ -383,7 +383,14 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
 
 def fetch_open_meteo_marine_batch(coords, chunk=12):
     """Marine for many coords per request (same idea)."""
-    h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature"
+    # Swell partitions added 2026-08-04 for marine_source="open-meteo" spots.
+    # Same request count, slightly larger payload. Open-Meteo partitions into a
+    # primary and a secondary swell train plus wind wave, the same shape
+    # Stormglass gives, so the two-tone bar and the 2nd-swell row work either way.
+    h = ("wave_height,wave_direction,swell_wave_period,sea_surface_temperature,"
+         "swell_wave_height,swell_wave_direction,"
+         "secondary_swell_wave_height,secondary_swell_wave_period,"
+         "secondary_swell_wave_direction,wind_wave_height")
     out = []
     for ch in _chunks(coords, chunk):
         lats = ",".join(f"{c[0]}" for c in ch)
@@ -484,9 +491,20 @@ def main():
                 if om_fc is None or om_mar is None:
                     continue             # chunk failed; previous rows stay current
 
+                # Marine source. Default is Stormglass off the shared pin.
+                # marine_source="open-meteo" opts a spot out, for breaks whose
+                # shelter Stormglass cannot see. Banks Peninsula is the proven
+                # case: Stormglass returns an IDENTICAL swell height 30 km apart
+                # across the peninsula, so Sumner reads like open Pegasus Bay
+                # on a S swell when Surfline and GoodSurfNow both have it flat.
+                # Verified against both before switching, see
+                # _MARINE_SOURCE_POLICY.md. (Che approved 2026-08-04.)
+                marine_src = (s.get("marine_source") or "stormglass").strip().lower()
+                use_om_marine = marine_src.startswith("open")
+
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
-                sg_expected = bool(s["calibrated"] and s["pin_id"])
+                sg_expected = bool(s["calibrated"] and s["pin_id"]) and not use_om_marine
                 if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
                 factor = s.get("adjustment_factor") or 1.0
@@ -521,7 +539,29 @@ def main():
                         si = 0
                     wave_m = period_s = swell_deg = None
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
-                    if sg and si is not None:
+                    if use_om_marine and mi is not None:
+                        # Open-Meteo marine at the spot's own lineup. Its grid
+                        # resolves coastal sheltering that Stormglass does not.
+                        # Same field set and same factor/Tp handling as the
+                        # Stormglass branch so everything downstream is identical.
+                        omh = om_mar["hourly"]
+                        def _om(k):
+                            v = omh.get(k)
+                            return v[mi] if v else None
+                        raw = _om("wave_height")
+                        if raw is not None: wave_m = raw * factor
+                        period_s  = _om("swell_wave_period")
+                        swell_deg = _om("swell_wave_direction")
+                        prim_swell_h = _om("swell_wave_height")
+                        if prim_swell_h is not None: prim_swell_h = round(prim_swell_h * factor, 2)
+                        sec_swell_h = _om("secondary_swell_wave_height")
+                        if sec_swell_h is not None: sec_swell_h = round(sec_swell_h * factor, 2)
+                        sec_p = _om("secondary_swell_wave_period")
+                        if sec_p is not None: sec_swell_period = round(sec_p * PEAK_PERIOD_FACTOR, 1)
+                        sec_swell_deg = _om("secondary_swell_wave_direction")
+                        windwave_h = _om("wind_wave_height")
+                        if windwave_h is not None: windwave_h = round(windwave_h * factor, 2)
+                    elif sg and si is not None:
                         raw = pick_sg(sg["hours"][si].get("waveHeight"))
                         if raw is not None: wave_m = raw * factor
                         period_s = pick_sg(sg["hours"][si].get("swellPeriod"))
