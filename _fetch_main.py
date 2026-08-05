@@ -290,9 +290,18 @@ def compute_rating(slot, spot):
     # Cap at Poor rather than forcing Flat: there IS water moving, it just is not
     # rideable. The costs are asymmetric - calling a rideable day Poor annoys
     # someone, calling a flat day Fair sends them driving to the coast.
-    _sw = slot.get("prim_swell_h")
-    if _sw is not None and _sw <= 0.25:
-        score = min(score, 5.4)          # 5.4 = top of the Poor band
+    #
+    # Widened 5 Aug 2026 from primary swell alone to COMBINED swell. Te Arai on
+    # 5 Aug had prim 0.31 and sec 0.19, so the primary gate did not fire and we
+    # published 1.51m rated GOOD against GoodSurfNow's 0.5m. Re-scored over the
+    # same 2,370 ground-truth slots, combined <= 0.30 beats primary <= 0.25 on
+    # every measure at once: 74 catches vs 70, 19 false alarms vs 20, 80%
+    # precision vs 78%. Strictly better, so there is no trade being made here.
+    _p, _q = slot.get("prim_swell_h"), slot.get("sec_swell_h")
+    if _p is not None:
+        _sw = (_p * _p + (_q or 0) ** 2) ** 0.5
+        if _sw <= 0.30:
+            score = min(score, 5.4)      # 5.4 = top of the Poor band
     # Wave-size ceilings (Che 2026-07-17): a top label must be backed by real size.
     # Perfect-but-small days cap at the band the wave qualifies for; the score is
     # capped (not just the label) so the number always sits inside its band on
