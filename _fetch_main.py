@@ -689,10 +689,44 @@ def main():
                     # When the secondary wins, swap the partitions so the table's Period
                     # row, 2nd-swell row, ratings and SurfGuru all stay consistent.
                     # Flips ~5% of slots; both periods are already Tp-scaled here.
-                    if (prim_swell_h is not None and sec_swell_h is not None
-                            and sec_swell_period is not None and period_s is not None
-                            and sec_swell_h * sec_swell_h * sec_swell_period
-                                > prim_swell_h * prim_swell_h * period_s):
+                    _ranked = (prim_swell_h is not None and sec_swell_h is not None
+                               and sec_swell_period is not None and period_s is not None)
+                    if (_ranked and sec_swell_h * sec_swell_h * sec_swell_period
+                            > prim_swell_h * prim_swell_h * period_s):
+                        period_s, sec_swell_period = sec_swell_period, period_s
+                        swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
+                        prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
+                    # Groundswell override (Che 2026-08-05). Energy alone is not
+                    # enough: h^2 * T lets a fat short wind sea beat a real
+                    # groundswell, so the displayed period flip-flops between two
+                    # different waves. Mt Maunganui Tay on 5 Aug went 4s, 5s, 4s,
+                    # 4s, 14s, 13s, 19s, 19s while GoodSurfNow held a steady 11-17s.
+                    # Wed 12am there was 0.46m @ 4s against 0.09m @ 10s: energy
+                    # 0.95 vs 0.09, so the wind sea won.
+                    #
+                    # If the winner is wind sea (under 8s) and a genuine
+                    # groundswell sits behind it, show the groundswell.
+                    #
+                    # Measured on 476 slots across 17 spots against GoodSurfNow
+                    # period data (_audit/gsn_periods_2026-08-05.json):
+                    #
+                    #   share  mean    out by 5s+  bias    spots made worse
+                    #   none   3.68s   32.1%       -2.41s  -
+                    #   25%    3.00s   20.0%       -0.64s  3
+                    #   30%    2.96s   19.3%       -0.92s  0   <- shipped
+                    #   40%    3.00s   20.0%       -1.39s  0
+                    #
+                    # 30% is the only setting that takes the best mean AND the best
+                    # gross-error rate while making no spot worse. We were running
+                    # 2.4s SHORT fleet-wide because wind sea kept winning; this
+                    # closes most of that.
+                    #
+                    # This runs AFTER the energy swap and re-tests the result,
+                    # which is how it was measured. Folding it into the energy
+                    # condition would change its meaning.
+                    if (_ranked and period_s < 8 and sec_swell_period >= 9
+                            and sec_swell_h >= 0.30 * prim_swell_h
+                            and sec_swell_h >= 0.05):
                         period_s, sec_swell_period = sec_swell_period, period_s
                         swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
                         prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
