@@ -352,11 +352,18 @@ def compute_rating(slot, spot):
     # same 2,370 ground-truth slots, combined <= 0.30 beats primary <= 0.25 on
     # every measure at once: 74 catches vs 70, 19 false alarms vs 20, 80%
     # precision vs 78%. Strictly better, so there is no trade being made here.
+    #
+    # KEEP THIS AS A SINGLE `if`, NOT a nested one. The `elif` below chains to
+    # it on purpose: gate fires -> cap at Poor and skip the ceilings; gate does
+    # not fire -> the size ceilings apply. On 5 Aug this was briefly rewritten
+    # as `if _p is not None:` with the threshold test nested inside, which
+    # silently rebound that `elif` and disabled the wave-size ceilings and the
+    # long-period lift for every slot that has a swell partition, i.e. nearly
+    # all of them. It shipped and put Te Arai on screen as "Mint" at 0.38 m.
     _p, _q = slot.get("prim_swell_h"), slot.get("sec_swell_h")
-    if _p is not None:
-        _sw = (_p * _p + (_q or 0) ** 2) ** 0.5
-        if _sw <= 0.30:
-            score = min(score, 5.4)      # 5.4 = top of the Poor band
+    _sw = None if _p is None else (_p * _p + (_q or 0) ** 2) ** 0.5
+    if _sw is not None and _sw <= 0.30:
+        score = min(score, 5.4)          # 5.4 = top of the Poor band
     # Wave-size ceilings (Che 2026-07-17): a top label must be backed by real size.
     # Perfect-but-small days cap at the band the wave qualifies for; the score is
     # capped (not just the label) so the number always sits inside its band on
