@@ -118,6 +118,61 @@ def compass_to_deg(s):
         else: b += 360
     return ((a + b) / 2) % 360
 
+def compass_dirs(s):
+    """Every direction listed in a label, NOT their midpoint.
+
+    compass_to_deg() averages "S / SW" to 202.5, which is what the wind score
+    wants (how groomed is the face). The offshore-chop trim below wants a
+    different question answered: is the wind near ANY of the listed offshore
+    directions. Nearest-of-listed scored better than the midpoint on the ground
+    truth (over-reads 3.9% vs 4.6%), so the two must not share a helper.
+    """
+    if not s: return []
+    return [COMPASS_TO_DEG[p] for p in re.split(r"[-/,]", s.upper().replace(" ", ""))
+            if p in COMPASS_TO_DEG]
+
+# ── Offshore-chop trim (Che 2026-08-05, approved fleet-wide) ───────────────
+# wave_m is TOTAL sea state at an offshore pin, so it includes wind sea raised
+# over open-water fetch. When that wind is blowing OFF the land at the actual
+# lineup, none of it reaches the beach, yet we were still publishing it as surf.
+#
+# Mt Maunganui Tay on 5 Aug: swell 0.20-0.47 m (which matches GoodSurfNow's
+# 0.2-0.4 exactly), plus 0.27-0.46 m of chop under a 6-9 kt S/SW wind, which is
+# Tay's own offshore direction. We published 0.56-0.89 m. Same signature at Te
+# Arai and at Sumner before it moved to Open-Meteo.
+#
+# Measured over 2,370 ground-truth slots: mean error 0.233 -> 0.224 m and slots
+# over GoodSurfNow by >0.4 m fall 7.3% -> 3.9%. It costs under-reads, 8.9% ->
+# 10.8%, and it damages 15 already-accurate spots (Taieri Mouth, New Brighton,
+# Waihau Bay, Robin Hood Bay). Che chose fleet-wide over a per-spot list on
+# 5 Aug knowing that cost, on the same asymmetric-cost reasoning as the
+# groundswell gate: an under-read annoys someone, an over-read sends them
+# driving to the coast.
+#
+# NOTE this is the one fix here that no adjustment_factor could deliver. Tay is
+# +0.5 m over today and -0.7 m under on Monday's northerly; a constant that
+# fixes one breaks the other. Only a conditional rule can separate them.
+OFFSHORE_ARC   = 45     # degrees either side of ANY listed offshore direction
+OFFSHORE_RATIO = 0.7    # fires only when chop is at least this multiple of swell
+OFFSHORE_KEEP  = 0.25   # fraction of chop ENERGY kept, i.e. half its height
+
+def offshore_chop_trim(wave_m, prim, sec, chop, wind_deg, offshore_label):
+    """-> (wave_m, chop). Unchanged unless the trigger fires."""
+    dirs = compass_dirs(offshore_label)
+    if (wave_m is None or chop is None or wind_deg is None or not dirs
+            or prim is None):
+        return wave_m, chop
+    if min(angle_delta(wind_deg, d) for d in dirs) > OFFSHORE_ARC:
+        return wave_m, chop
+    swell = (prim * prim + (sec or 0) ** 2) ** 0.5
+    if swell <= 0.01 or chop < OFFSHORE_RATIO * swell:
+        return wave_m, chop
+    trimmed = (swell * swell + OFFSHORE_KEEP * chop * chop) ** 0.5
+    if trimmed >= wave_m:
+        return wave_m, chop          # only ever a trim, never a lift
+    # Keep the drawn bar honest: the chop block must shrink with the total.
+    return round(trimmed, 2), round(chop * (OFFSHORE_KEEP ** 0.5), 2)
+
 def angle_delta(d1, d2):
     if d1 is None or d2 is None: return None
     diff = abs(((d1 - d2) % 360 + 360) % 360)
@@ -659,9 +714,20 @@ def main():
                         hour=int(hh), tzinfo=NZ_TZ)
                     day_offset = (slot_dt.date() - today_nz.date()).days
 
+                    # Drop wind sea an offshore wind cannot deliver to the beach.
+                    # Runs AFTER the energy-weighted partition swap so prim/sec
+                    # are settled, and BEFORE the rating so the size score and
+                    # every ceiling downstream see the trimmed number.
+                    wave_m, windwave_h = offshore_chop_trim(
+                        wave_m, prim_swell_h, sec_swell_h, windwave_h,
+                        wind_deg, s.get("offshore_wind"))
+
+                    # sec_swell_h is required here: the groundswell gate tests
+                    # COMBINED swell, and without this key it silently degrades
+                    # to primary-only and the widening does nothing.
                     slot_data = {"wave_m":wave_m, "period_s":period_s, "swell_deg":swell_deg,
                                  "wind_kt":wind_kt, "wind_deg":wind_deg,
-                                 "prim_swell_h":prim_swell_h}
+                                 "prim_swell_h":prim_swell_h, "sec_swell_h":sec_swell_h}
                     rating = compute_rating(slot_data, s)
 
                     all_rows.append({
