@@ -273,6 +273,26 @@ def compute_rating(slot, spot):
     # Without this, a glassy light-offshore day on a tiny swell floats up to Fair/Good.
     if slot.get("wave_m") is not None and slot["wave_m"] <= 0.2:
         score = 0.0
+    # GROUNDSWELL GATE (Che 2026-08-05, from user error report #18 on Tay Street).
+    # The gate above tests wave_m, which is TOTAL sea state and includes wind
+    # chop, so on a flat-but-choppy day it never fires. A user reported Tay St as
+    # "flat, hardly ankle height" while we published 0.82m and "Fair": the total
+    # was 0.82m but the actual groundswell underneath was 0.24m at 5.3s.
+    #
+    # Checked against the 85-spot GoodSurfNow ground truth: 206 slots where they
+    # had a spot flat (<=0.30m) and we rated it Fair or better. A gate on SWELL
+    # HEIGHT catches 156 of them while wrongly downgrading only 45 of 1054
+    # correct calls, which is the best precision of anything tested. Gating on
+    # period fails, because the worst cases are long-period (Te Arai was rated
+    # MINT at 1.61m on a 0.21m swell at 12.9s). Gating on swell-as-a-share-of-
+    # total also fails (precision ~45%).
+    #
+    # Cap at Poor rather than forcing Flat: there IS water moving, it just is not
+    # rideable. The costs are asymmetric - calling a rideable day Poor annoys
+    # someone, calling a flat day Fair sends them driving to the coast.
+    _sw = slot.get("prim_swell_h")
+    if _sw is not None and _sw <= 0.25:
+        score = min(score, 5.4)          # 5.4 = top of the Poor band
     # Wave-size ceilings (Che 2026-07-17): a top label must be backed by real size.
     # Perfect-but-small days cap at the band the wave qualifies for; the score is
     # capped (not just the label) so the number always sits inside its band on
@@ -631,7 +651,8 @@ def main():
                     day_offset = (slot_dt.date() - today_nz.date()).days
 
                     slot_data = {"wave_m":wave_m, "period_s":period_s, "swell_deg":swell_deg,
-                                 "wind_kt":wind_kt, "wind_deg":wind_deg}
+                                 "wind_kt":wind_kt, "wind_deg":wind_deg,
+                                 "prim_swell_h":prim_swell_h}
                     rating = compute_rating(slot_data, s)
 
                     all_rows.append({
