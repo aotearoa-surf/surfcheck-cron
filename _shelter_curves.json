@@ -54,7 +54,14 @@
    "whangapoua-newchums",
    "whareakeake-murdering-bay"
   ],
-  "note": "Che approved apply 9 Aug night, amplifiers included. Adjust or remove per spot by editing this file."
+  "note": "Che approved apply 9 Aug night, amplifiers included. Adjust or remove per spot by editing this file.",
+  "provisional": {
+   "sumner-scarborough": {
+    "SW": 0.45,
+    "NE": 0.85,
+    "basis": "Che-approved 10 Aug from ~4 fresh GSN slots each (screenshot capture, 10 Aug am); below the 6-slot bar, validate against the Wed 12 Aug capture"
+   }
+  }
  },
  "allans-beach": {
   "S": 1.15
@@ -152,7 +159,9 @@
  },
  "sumner-scarborough": {
   "S": 0.2,
-  "SE": 0.35
+  "SE": 0.35,
+  "SW": 0.45,
+  "NE": 0.85
  },
  "tairua": {
   "N": 1.0
