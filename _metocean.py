@@ -26,7 +26,16 @@ MO_VARS = ["wave.height", "wave.period.peak",
            "wave.height.above-8s", "wave.period.above-8s.peak", "wave.direction.above-8s.peak",
            "wave.height.below-8s", "wave.period.below-8s.peak", "wave.direction.below-8s.peak"]
 
-M1_FACTORS = {
+# Che, 9 Aug 2026 evening: "remove all adjustment factors for now and we
+# reassess.. I dont want adjustment factors on any MetOcean spot data."
+# MetOcean runs RAW at every spot. Reason: the fitted shadow factors were
+# direction-blind and crushed real swell events (sweep found Sumner showing
+# 0.33-0.58 m against GSN's 1.3-1.6 m Wed-Sat, Mahia north 0.54 vs 1.8).
+# The fitted values are preserved below for the reassessment; do NOT
+# reactivate without a full recommendation and Che's approval.
+M1_FACTORS = {}
+
+_FITTED_9AUG_FOR_REASSESSMENT = {
     "takapuna": 0.40, "omaha": 0.40, "okiwi-gbi": 0.45, "pauanui": 0.75,
     "sumner-scarborough": 0.45, "mahia-north-coast": 0.45,
     "hotwater-beach": 0.85, "waihi-beach": 0.85, "waipu-cove": 0.85, "matata": 1.15,
