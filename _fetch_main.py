@@ -755,6 +755,25 @@ def main():
                         period_s, sec_swell_period = sec_swell_period, period_s
                         swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
                         prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
+                    # Windswell override (Che approved 9 Aug 2026, R5). The rule
+                    # above cures "wind slop shown over a real groundswell"; this
+                    # cures the OPPOSITE failure seen at Forestry on 9 Aug: a
+                    # 6 cm 15s leftover shown as THE period while a metre of 7s
+                    # windswell was the actual surf (GoodSurfNow showed 6s).
+                    # Fires only when the sub-8s band, windsea included, is at
+                    # least 3x the 8s+ band. Measured on 918 GoodSurfNow period
+                    # slots across both regimes: mean error 2.50s -> 2.30s, out
+                    # by 5s+ 16.6% -> 14.8%, better on BOTH the southerly
+                    # (3.35 -> 3.29s) and northerly (1.74 -> 1.41s) captures.
+                    # A plain "always show the dominant band" variant measured
+                    # WORSE (2.88s); the 3x guard is what makes it safe.
+                    if (_ranked and period_s >= 8 and sec_swell_period < 8):
+                        _hi = prim_swell_h                       # 8s+ band
+                        _lo = (sec_swell_h ** 2 + (windwave_h or 0) ** 2) ** 0.5
+                        if _lo >= 3 * _hi and sec_swell_h >= 0.05:
+                            period_s, sec_swell_period = sec_swell_period, period_s
+                            swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
+                            prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
                     if swell_deg is None and not sg_expected and mi is not None:
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
