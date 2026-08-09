@@ -642,7 +642,15 @@ def main():
                 # Verified against both before switching, see
                 # _MARINE_SOURCE_POLICY.md. (Che approved 2026-08-04.)
                 marine_src = (s.get("marine_source") or "stormglass").strip().lower()
+                # Che, 9 Aug (post-go-live): "I only want to use MetOcean for
+                # wave and swell data." No per-spot Open-Meteo exceptions; the
+                # marine_source="open-meteo" flag (Sumner, Taylors) only applies
+                # outside metocean mode. Known cost, accepted: Sumner tracks
+                # GSN's average through the 0.45 factor but not its day-to-day
+                # shape (~0.20 m residual); fixing that inside MetOcean needs
+                # their Pro-tier regional domains.
                 use_om_marine = marine_src.startswith("open") and MARINE_MODE != "metocean"
+                mo_active = MARINE_MODE == "metocean"
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
@@ -650,7 +658,7 @@ def main():
                                and MARINE_MODE != "metocean")
                 if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
-                if MARINE_MODE == "metocean":
+                if mo_active:
                     # M1 factors are separate from adjustment_factor: the
                     # Stormglass factors stay untouched for clean rollback.
                     from _metocean import M1_FACTORS, metocean_slot_fields
