@@ -102,8 +102,13 @@ def metocean_slot_fields(mo, j, curve):
     else:
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = b_h, b_p, b_d, a_h, a_p, a_d
     factor = 1.0
-    if curve and prim_d is not None:
-        factor = curve.get(sector_name(prim_d), 1.0)
+    if curve:
+        # Missing primary direction must not skip the curve (a null let one
+        # Sumner slot run raw at 0.88 vs GSN 0.4 on 10 Aug): fall back to the
+        # secondary band's direction, the two bands share the weather system.
+        d = prim_d if prim_d is not None else sec_d
+        if d is not None:
+            factor = curve.get(sector_name(d), 1.0)
     pk = mo["wave.period.peak"][j]
     return {
         "wave_m": round(tot * factor, 2),
