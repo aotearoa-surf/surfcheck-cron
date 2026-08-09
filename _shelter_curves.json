@@ -60,6 +60,12 @@
     "SW": 0.45,
     "NE": 0.85,
     "basis": "Che-approved 10 Aug from ~4 fresh GSN slots each (screenshot capture, 10 Aug am); below the 6-slot bar, validate against the Wed 12 Aug capture"
+   },
+   "taylors-mistake": {
+    "S": 0.2,
+    "SW": 0.45,
+    "NE": 0.85,
+    "basis": "copied from Sumner 10 Aug (GSN serves byte-identical series for the pair; MetOcean raw differs 0.03m); SE 0.30 is its own 9 Aug fit. Validate Wed 12 Aug."
    }
   }
  },
@@ -176,7 +182,10 @@
   "N": 1.0
  },
  "taylors-mistake": {
-  "SE": 0.3
+  "SE": 0.3,
+  "S": 0.2,
+  "SW": 0.45,
+  "NE": 0.85
  },
  "te-arai": {
   "N": 1.05
