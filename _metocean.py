@@ -19,8 +19,23 @@ Stormglass factors stay untouched in the DB so MARINE_MODE=stormglass rolls
 back cleanly.
 """
 import json, os, urllib.request
+from pathlib import Path
 
 MO_URL = "https://forecast-v2.metoceanapi.com/point/time"
+
+# ── D1 directional shelter curves (Che approved 9 Aug night) ─────────────
+# Per-spot, per-45deg-sector multipliers fitted on the two-regime GSN truth
+# (fleet MAE 0.296 -> 0.148). Sectors absent from a spot's curve run raw 1.0:
+# only data-qualified sectors are ever scaled (no guesswork). Amplifiers
+# (>1.0, Kaikoura/Timaru/Oamaru S-swell focus) included, max observed 1.45.
+# Full audit trail: _audit/shelter_curves_draft.json + fit_shelter_curves.py
+# in the site repo. Applied-spot list in this file's _meta.applied_spots.
+D1_CURVES = json.loads((Path(__file__).parent / "_shelter_curves.json")
+                       .read_text(encoding="utf-8"))
+_SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+
+def sector_name(deg):
+    return _SECT[int(((deg + 22.5) % 360) // 45)]
 
 MO_VARS = ["wave.height", "wave.period.peak",
            "wave.height.above-8s", "wave.period.above-8s.peak", "wave.direction.above-8s.peak",
@@ -67,11 +82,15 @@ def fetch_metocean(lat, lng, from_utc, n_slots, timeout=60):
     return out
 
 
-def metocean_slot_fields(mo, j, factor):
+def metocean_slot_fields(mo, j, curve):
     """Map MetOcean arrays at slot index j onto our slot_forecast fields.
     Returns None when the slot has no total height (caller keeps stale row).
     prim = the BIGGER band (so the displayed swell row is the wave you see),
-    period_s = overall spectrum peak (GSN's number)."""
+    period_s = overall spectrum peak (GSN's number).
+
+    `curve` is the spot's D1 sector dict ({} for none). The factor is chosen
+    PER SLOT from the dominant band's direction, the same convention the
+    curves were fitted under."""
     tot = mo["wave.height"][j] if j < len(mo["wave.height"]) else None
     if tot is None:
         return None
@@ -82,6 +101,9 @@ def metocean_slot_fields(mo, j, factor):
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = a_h, a_p, a_d, b_h, b_p, b_d
     else:
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = b_h, b_p, b_d, a_h, a_p, a_d
+    factor = 1.0
+    if curve and prim_d is not None:
+        factor = curve.get(sector_name(prim_d), 1.0)
     pk = mo["wave.period.peak"][j]
     return {
         "wave_m": round(tot * factor, 2),

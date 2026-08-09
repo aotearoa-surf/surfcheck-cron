@@ -659,10 +659,13 @@ def main():
                 if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
                 if mo_active:
-                    # M1 factors are separate from adjustment_factor: the
-                    # Stormglass factors stay untouched for clean rollback.
-                    from _metocean import M1_FACTORS, metocean_slot_fields
-                    factor = M1_FACTORS.get(s["id"], 1.0)
+                    # D1 directional shelter curve (Che approved 9 Aug night):
+                    # per-slot factor from dominant swell direction, applied
+                    # inside metocean_slot_fields. Separate from
+                    # adjustment_factor, which stays untouched for rollback.
+                    from _metocean import D1_CURVES, metocean_slot_fields
+                    d1_curve = D1_CURVES.get(s["id"]) or {}
+                    factor = 1.0
                     mo = mo_by_spot.get(s["id"])
                     if mo is None:
                         continue     # MetOcean failed for this spot; keep stale rows
@@ -701,7 +704,7 @@ def main():
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
                     if MARINE_MODE == "metocean":
                         # MetOcean arrays are built on slot_keys order, index j_slot.
-                        flds = metocean_slot_fields(mo, j_slot, factor)
+                        flds = metocean_slot_fields(mo, j_slot, d1_curve)
                         if flds is None:
                             continue     # no data for this slot; keep stale row
                         wave_m = flds["wave_m"]; period_s = flds["period_s"]
