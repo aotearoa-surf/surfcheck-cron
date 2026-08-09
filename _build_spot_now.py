@@ -80,7 +80,7 @@ def build_rows(slots, cur=None):
             entry["t12"] = _fields(t12)
             entry["t18"] = _fields(t18)
             days.append(entry)
-        days = days[:7]
+        days = days[:10]
         out.append({
             "spot_id": sid,
             "slot_key": now["slot_key"], "slot_time": now.get("slot_time"),
