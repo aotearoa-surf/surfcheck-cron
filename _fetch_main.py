@@ -346,23 +346,41 @@ def compute_rating(slot, spot):
     # rideable. The costs are asymmetric - calling a rideable day Poor annoys
     # someone, calling a flat day Fair sends them driving to the coast.
     #
-    # Widened 5 Aug 2026 from primary swell alone to COMBINED swell. Te Arai on
-    # 5 Aug had prim 0.31 and sec 0.19, so the primary gate did not fire and we
-    # published 1.51m rated GOOD against GoodSurfNow's 0.5m. Re-scored over the
-    # same 2,370 ground-truth slots, combined <= 0.30 beats primary <= 0.25 on
-    # every measure at once: 74 catches vs 70, 19 false alarms vs 20, 80%
-    # precision vs 78%. Strictly better, so there is no trade being made here.
+    # REWRITTEN 9 Aug 2026 (Che: "we should be gating rating labels on the wave
+    # size"): the gate now tests the TRIMMED WAVE SIZE, not the swell partitions.
+    #
+    # Why the partition gate had to go: during the 9 Aug northerly windswell,
+    # Stormglass filed the rideable 7-8s sea under windWaveHeight, so Forestry
+    # read combined swell 0.21 under a 1.6m rideable sea and got capped at Poor
+    # while GoodSurfNow showed 1.1m of real surf. At midnight the SAME wave
+    # train was reclassified as 1.41m of primary swell. The gate was trusting a
+    # label that flips mid-event.
+    #
+    # Why gating on wave size is safe NOW when it failed at Tay Street in June:
+    # wave_m reaching this function is already through the offshore-chop trim,
+    # so chop an offshore wind cannot deliver to the beach has been removed.
+    # Post-trim wave size approximates surf that actually arrives, which is the
+    # quantity GoodSurfNow publishes.
+    #
+    # Measured over 2,598 matched slots across BOTH regimes (S captures 4-7 Aug
+    # plus the 9 Aug northerly, lead 0-4 days):
+    #
+    #   rule                       catches flat  false alarms  precision
+    #   combined swell <= 0.30       579/717        86/1529       87%
+    #   wave_m <= 0.50               575/717        39/1529       94%
+    #   wave_m <= 0.45  <- shipped   547/717        26/1529       95%
+    #   wave_m <= 0.40               507/717        18/1529       97%
+    #
+    # On the northerly capture alone the old gate false-fired 25 times (the
+    # Forestry class); wave <= 0.45 fires 8. 0.45 also caps only 39% of
+    # genuinely knee-high (GSN 0.4-0.5) days at Poor, which is a fair label.
     #
     # KEEP THIS AS A SINGLE `if`, NOT a nested one. The `elif` below chains to
     # it on purpose: gate fires -> cap at Poor and skip the ceilings; gate does
-    # not fire -> the size ceilings apply. On 5 Aug this was briefly rewritten
-    # as `if _p is not None:` with the threshold test nested inside, which
-    # silently rebound that `elif` and disabled the wave-size ceilings and the
-    # long-period lift for every slot that has a swell partition, i.e. nearly
-    # all of them. It shipped and put Te Arai on screen as "Mint" at 0.38 m.
-    _p, _q = slot.get("prim_swell_h"), slot.get("sec_swell_h")
-    _sw = None if _p is None else (_p * _p + (_q or 0) ** 2) ** 0.5
-    if _sw is not None and _sw <= 0.30:
+    # not fire -> the size ceilings apply. On 5 Aug a rewrite into a nested if
+    # silently rebound that `elif` and disabled the ceilings fleet-wide. It
+    # shipped and put Te Arai on screen as "Mint" at 0.38 m.
+    if slot.get("wave_m") is not None and slot["wave_m"] <= 0.45:
         score = min(score, 5.4)          # 5.4 = top of the Poor band
     # Wave-size ceilings (Che 2026-07-17): a top label must be backed by real size.
     # Perfect-but-small days cap at the band the wave qualifies for; the score is
