@@ -27,6 +27,10 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           STORMGLASS_KEY:       ${{ secrets.STORMGLASS_KEY }}
           OPEN_METEO_KEY:       ${{ secrets.OPEN_METEO_KEY }}
+          METOCEAN_KEY:         ${{ secrets.METOCEAN_KEY }}
+          # M1 marine source switch. ROLLBACK: change to "stormglass", push,
+          # then delete slot_forecast rows with day_offset > 6 (see _metocean.py).
+          MARINE_MODE:          metocean
         run: python -u _fetch_main.py
 
       - name: Email on failure

@@ -38,6 +38,16 @@ SB_HEADERS_RETURN = {**SB_HEADERS, "Prefer": "return=representation"}
 SG_KEY = os.environ["STORMGLASS_KEY"]
 OM_KEY = os.environ["OPEN_METEO_KEY"]
 NZ_TZ  = timezone(timedelta(hours=12))
+# ── Marine source switch (M1, 9 Aug 2026) ────────────────────────────────
+# "metocean": MetOcean nearshore at lineup GPS, 10-day window, slimmed
+#             pipeline (no Tp x1.2, no partition overrides, no chop trim:
+#             the nearshore model provides natively what those approximated).
+# "stormglass": the pre-M1 path, byte-for-byte. ROLLBACK = set
+#             MARINE_MODE=stormglass in .github/workflows/fetch.yml, then
+#             delete slot_forecast rows with day_offset > 6 (Stormglass
+#             won't refresh them). Nothing else to undo.
+MARINE_MODE = os.environ.get("MARINE_MODE", "stormglass").strip().lower()
+FORECAST_DAYS = 10 if MARINE_MODE == "metocean" else 7
 SG_PARAMS = ("waveHeight,swellHeight,swellPeriod,swellDirection,"
             "secondarySwellHeight,secondarySwellPeriod,secondarySwellDirection,"
             "windWaveHeight,windSpeed,windDirection")
@@ -480,7 +490,7 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
         lngs = ",".join(f"{c[1]}" for c in ch)
         try:
             data = http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lngs}"
-                            f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
+                            f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}&apikey={OM_KEY}", timeout=90)
             out.extend(data if isinstance(data, list) else [data])
         except Exception as e:
             # One slow/failed chunk must not kill the cycle (2026-06-12, run #12:
@@ -506,7 +516,7 @@ def fetch_open_meteo_marine_batch(coords, chunk=12):
         lngs = ",".join(f"{c[1]}" for c in ch)
         try:
             data = http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lats}&longitude={lngs}"
-                            f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}", timeout=90)
+                            f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}&apikey={OM_KEY}", timeout=90)
             out.extend(data if isinstance(data, list) else [data])
         except Exception as e:
             print(f"  WARN marine chunk failed ({len(ch)} spots): {str(e)[:120]}", flush=True)
@@ -521,7 +531,7 @@ def slot_key(dt_nz): return dt_nz.strftime("%Y-%m-%dT%H")
 def build_slot_keys():
     today = nz_now().replace(hour=0, minute=0, second=0, microsecond=0)
     keys = []
-    for d in range(7):
+    for d in range(FORECAST_DAYS):
         base = today + timedelta(days=d)
         for h in (0, 6, 12, 18):
             keys.append(slot_key(base.replace(hour=h)))
@@ -544,29 +554,52 @@ def main():
         spots = sb_select("spots")
         print(f"[main] Loaded {len(pins)} pins, {len(spots)} spots\n", flush=True)
 
-        # 1. Stormglass per pin
-        print("[1/3] Fetching Stormglass for offshore pins…", flush=True)
-        sg_by_pin = {}
-        for p in pins:
-            try:
-                sg_by_pin[p["id"]] = fetch_stormglass(p["lat"], p["lng"])
-                print(f"  ✓ {p['id']}", flush=True)
-                time.sleep(0.4)
-            except Exception as e:
-                print(f"  ✗ {p['id']}: {e}", flush=True)
-                errors += 1
-                sg_by_pin[p["id"]] = None
-
-        # Stormglass mostly down (quota 402s etc.) -> abort BEFORE any writes so
-        # the previous cycle's Stormglass data survives in the DB. Mirrors the
-        # Open-Meteo half-down guard below. (Che 2026-07-18: stale Stormglass
-        # beats fresh Open-Meteo marine, always.)
-        sg_failed = sum(1 for v in sg_by_pin.values() if v is None)
-        if pins and sg_failed > len(pins) // 2:
-            raise RuntimeError(f"Stormglass mostly down: {sg_failed}/{len(pins)} pins failed - aborting cycle, keeping previous data")
-
         slot_keys = build_slot_keys()
         today_nz  = nz_now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # 1. Marine source: MetOcean per spot (M1) or Stormglass per pin.
+        sg_by_pin = {}
+        mo_by_spot = {}
+        if MARINE_MODE == "metocean":
+            from _metocean import fetch_metocean
+            print(f"[1/3] Fetching MetOcean for {len(spots)} spots (lineup GPS)…", flush=True)
+            mo_from_utc = (today_nz - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            for i_mo, s_mo in enumerate(spots):
+                try:
+                    mo_by_spot[s_mo["id"]] = fetch_metocean(
+                        s_mo["lineup_lat"], s_mo["lineup_lng"], mo_from_utc, len(slot_keys))
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"  ✗ {s_mo['id']}: {str(e)[:120]}", flush=True)
+                    errors += 1
+                    mo_by_spot[s_mo["id"]] = None
+                if (i_mo + 1) % 25 == 0:
+                    print(f"  {i_mo+1}/{len(spots)}", flush=True)
+            mo_failed = sum(1 for v in mo_by_spot.values() if v is None)
+            # Same stale-beats-fresh philosophy as the Stormglass guard: abort
+            # before any writes so the previous cycle's rows survive.
+            if mo_failed > len(spots) // 4:
+                raise RuntimeError(f"MetOcean mostly down: {mo_failed}/{len(spots)} spots failed - aborting cycle, keeping previous data")
+            print(f"  ok {len(spots) - mo_failed}/{len(spots)} spots", flush=True)
+        else:
+            print("[1/3] Fetching Stormglass for offshore pins…", flush=True)
+            for p in pins:
+                try:
+                    sg_by_pin[p["id"]] = fetch_stormglass(p["lat"], p["lng"])
+                    print(f"  ✓ {p['id']}", flush=True)
+                    time.sleep(0.4)
+                except Exception as e:
+                    print(f"  ✗ {p['id']}: {e}", flush=True)
+                    errors += 1
+                    sg_by_pin[p["id"]] = None
+
+            # Stormglass mostly down (quota 402s etc.) -> abort BEFORE any writes so
+            # the previous cycle's Stormglass data survives in the DB. Mirrors the
+            # Open-Meteo half-down guard below. (Che 2026-07-18: stale Stormglass
+            # beats fresh Open-Meteo marine, always.)
+            sg_failed = sum(1 for v in sg_by_pin.values() if v is None)
+            if pins and sg_failed > len(pins) // 2:
+                raise RuntimeError(f"Stormglass mostly down: {sg_failed}/{len(pins)} pins failed - aborting cycle, keeping previous data")
 
         # 2. Open-Meteo - BATCHED (all spots in a few requests, not one-per-spot,
         # which dodges Open-Meteo throttling of cloud / GitHub-runner IPs).
@@ -609,14 +642,24 @@ def main():
                 # Verified against both before switching, see
                 # _MARINE_SOURCE_POLICY.md. (Che approved 2026-08-04.)
                 marine_src = (s.get("marine_source") or "stormglass").strip().lower()
-                use_om_marine = marine_src.startswith("open")
+                use_om_marine = marine_src.startswith("open") and MARINE_MODE != "metocean"
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
-                sg_expected = bool(s["calibrated"] and s["pin_id"]) and not use_om_marine
+                sg_expected = (bool(s["calibrated"] and s["pin_id"]) and not use_om_marine
+                               and MARINE_MODE != "metocean")
                 if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
-                factor = s.get("adjustment_factor") or 1.0
+                if MARINE_MODE == "metocean":
+                    # M1 factors are separate from adjustment_factor: the
+                    # Stormglass factors stay untouched for clean rollback.
+                    from _metocean import M1_FACTORS, metocean_slot_fields
+                    factor = M1_FACTORS.get(s["id"], 1.0)
+                    mo = mo_by_spot.get(s["id"])
+                    if mo is None:
+                        continue     # MetOcean failed for this spot; keep stale rows
+                else:
+                    factor = s.get("adjustment_factor") or 1.0
 
                 fc_idx = {}
                 for i, t in enumerate(om_fc["hourly"]["time"]):
@@ -642,13 +685,24 @@ def main():
                 cur_slot = slot_key(_now_nz.replace(hour=(_now_nz.hour // 6) * 6,
                                                     minute=0, second=0, microsecond=0))
 
-                for key in slot_keys:
+                for j_slot, key in enumerate(slot_keys):
                     fi = fc_idx.get(key); mi = mar_idx.get(key); si = sg_idx.get(key)
                     if si is None and key == cur_slot and sg and sg.get("hours"):
                         si = 0
                     wave_m = period_s = swell_deg = None
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
-                    if use_om_marine and mi is not None:
+                    if MARINE_MODE == "metocean":
+                        # MetOcean arrays are built on slot_keys order, index j_slot.
+                        flds = metocean_slot_fields(mo, j_slot, factor)
+                        if flds is None:
+                            continue     # no data for this slot; keep stale row
+                        wave_m = flds["wave_m"]; period_s = flds["period_s"]
+                        swell_deg = flds["swell_deg"]
+                        prim_swell_h = flds["prim_swell_h"]; sec_swell_h = flds["sec_swell_h"]
+                        sec_swell_period = flds["sec_swell_period"]
+                        sec_swell_deg = flds["sec_swell_deg"]
+                        windwave_h = None
+                    elif use_om_marine and mi is not None:
                         # Open-Meteo marine at the spot's own lineup. Its grid
                         # resolves coastal sheltering that Stormglass does not.
                         # Same field set and same factor/Tp handling as the
@@ -697,16 +751,20 @@ def main():
                     # rather have stale SG data in the database".)
                     if sg_expected and wave_m is None:
                         continue
-                    if wave_m is None and mi is not None:
-                        wave_m = om_mar["hourly"]["wave_height"][mi] * factor
-                    if period_s is None and not sg_expected and mi is not None:
-                        wp = om_mar["hourly"].get("swell_wave_period")
-                        period_s = wp[mi] if wp else None
-                    # Mean swell period -> peak period (Tp ~ 1.2 * Tm) so our numbers match
-                    # peak-period surf forecasts (Surfline etc.). Both sources give a mean
-                    # period, so convert once here regardless of which one supplied it.
-                    if period_s is not None:
-                        period_s = round(period_s * PEAK_PERIOD_FACTOR, 1)
+                    if MARINE_MODE != "metocean":
+                        # Open-Meteo fallbacks + Tm->Tp only apply to the legacy
+                        # sources. MetOcean periods are already PEAK, and a slot
+                        # with no MetOcean data was skipped above.
+                        if wave_m is None and mi is not None:
+                            wave_m = om_mar["hourly"]["wave_height"][mi] * factor
+                        if period_s is None and not sg_expected and mi is not None:
+                            wp = om_mar["hourly"].get("swell_wave_period")
+                            period_s = wp[mi] if wp else None
+                        # Mean swell period -> peak period (Tp ~ 1.2 * Tm) so our numbers match
+                        # peak-period surf forecasts (Surfline etc.). Both sources give a mean
+                        # period, so convert once here regardless of which one supplied it.
+                        if period_s is not None:
+                            period_s = round(period_s * PEAK_PERIOD_FACTOR, 1)
                     # Energy-weighted dominant swell (Che 2026-07-17): Stormglass ranks
                     # partitions by HEIGHT, so a short local wind-slop can out-rank the
                     # groundswell (Te Arai showing "3s S" while Surfline shows "16s E").
@@ -714,7 +772,12 @@ def main():
                     # When the secondary wins, swap the partitions so the table's Period
                     # row, 2nd-swell row, ratings and SurfGuru all stay consistent.
                     # Flips ~5% of slots; both periods are already Tp-scaled here.
-                    _ranked = (prim_swell_h is not None and sec_swell_h is not None
+                    # MetOcean mode: _ranked stays False, which disables the
+                    # energy swap, the 30%/9s groundswell override and the R5c
+                    # windswell override below. All three approximated the
+                    # band-vs-band decision MetOcean's 8s split provides natively.
+                    _ranked = (MARINE_MODE != "metocean"
+                               and prim_swell_h is not None and sec_swell_h is not None
                                and sec_swell_period is not None and period_s is not None)
                     if (_ranked and sec_swell_h * sec_swell_h * sec_swell_period
                             > prim_swell_h * prim_swell_h * period_s):
@@ -774,7 +837,8 @@ def main():
                             period_s, sec_swell_period = sec_swell_period, period_s
                             swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
                             prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
-                    if swell_deg is None and not sg_expected and mi is not None:
+                    if (swell_deg is None and not sg_expected and mi is not None
+                            and MARINE_MODE != "metocean"):
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
 
@@ -796,9 +860,13 @@ def main():
                     # Runs AFTER the energy-weighted partition swap so prim/sec
                     # are settled, and BEFORE the rating so the size score and
                     # every ceiling downstream see the trimmed number.
-                    wave_m, windwave_h = offshore_chop_trim(
-                        wave_m, prim_swell_h, sec_swell_h, windwave_h,
-                        wind_deg, s.get("offshore_wind"))
+                    # MetOcean mode skips the trim: its nearshore model already
+                    # resolves what an offshore wind delivers to the beach, and
+                    # GoodSurfNow (the target) publishes the untrimmed total.
+                    if MARINE_MODE != "metocean":
+                        wave_m, windwave_h = offshore_chop_trim(
+                            wave_m, prim_swell_h, sec_swell_h, windwave_h,
+                            wind_deg, s.get("offshore_wind"))
 
                     # sec_swell_h is required here: the groundswell gate tests
                     # COMBINED swell, and without this key it silently degrades
