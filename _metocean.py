@@ -97,16 +97,26 @@ def metocean_slot_fields(mo, j, curve):
     a_h, b_h = mo["wave.height.above-8s"][j], mo["wave.height.below-8s"][j]
     a_p, b_p = mo["wave.period.above-8s.peak"][j], mo["wave.period.below-8s.peak"][j]
     a_d, b_d = mo["wave.direction.above-8s.peak"][j], mo["wave.direction.below-8s.peak"][j]
-    if (a_h or 0) >= (b_h or 0):
+    # FIXED band rows (Che 10 Aug): groundswell (above-8s) is ALWAYS the
+    # primary row, windsea always secondary, GSN's own convention. The old
+    # bigger-band-first sort flipped rows on a 2 cm difference, which churned
+    # the displayed direction AND the rating's swell-window score for single
+    # slots (Sumner Tue 11 12pm). Only exception: no groundswell at all
+    # (band under 5 cm) puts the windsea in the primary row so the swell row
+    # never shows a phantom.
+    if (a_h or 0) >= 0.05:
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = a_h, a_p, a_d, b_h, b_p, b_d
     else:
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = b_h, b_p, b_d, a_h, a_p, a_d
     factor = 1.0
     if curve:
-        # Missing primary direction must not skip the curve (a null let one
-        # Sumner slot run raw at 0.88 vs GSN 0.4 on 10 Aug): fall back to the
-        # secondary band's direction, the two bands share the weather system.
-        d = prim_d if prim_d is not None else sec_d
+        # D1 keeps its FITTED convention: the factor follows the DOMINANT
+        # band's direction (that is how the curves were derived), with the
+        # other band as fallback when the direction is null.
+        a_dominant = (a_h or 0) >= (b_h or 0)
+        dom_d = a_d if a_dominant else b_d
+        other_d = b_d if a_dominant else a_d
+        d = dom_d if dom_d is not None else other_d
         if d is not None:
             factor = curve.get(sector_name(d), 1.0)
     pk = mo["wave.period.peak"][j]
