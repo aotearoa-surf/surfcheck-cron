@@ -1,0 +1,29 @@
+name: MetOcean refresh telemetry
+
+# Logs when MetOcean publishes new model runs (1 API unit per poll) so the
+# fetch schedule can be re-tuned from data. GitHub's schedule trigger can
+# drift/skip, which is fine for telemetry: resolution just gets coarser.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: metocean-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Poll
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          METOCEAN_KEY:         ${{ secrets.METOCEAN_KEY }}
+        run: python -u _poll_refresh.py
