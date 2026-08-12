@@ -36,7 +36,15 @@ SB_HEADERS = {
 SB_HEADERS_RETURN = {**SB_HEADERS, "Prefer": "return=representation"}
 
 SG_KEY = os.environ["STORMGLASS_KEY"]
-OM_KEY = os.environ["OPEN_METEO_KEY"]
+OM_KEY = (os.environ.get("OPEN_METEO_KEY") or "").strip()
+# Open-Meteo endpoint switch. Che cancelled the paid plan; it reverts to the
+# free tier on 9 Sep 2026, and the customer-* hosts stop answering then.
+# With a key we use the paid hosts, without one the free hosts, so the
+# changeover is just deleting the OPEN_METEO_KEY secret. Free limits
+# (10k calls/day) sit far above our ~90 batched requests/day.
+OM_FC_HOST  = "customer-api.open-meteo.com" if OM_KEY else "api.open-meteo.com"
+OM_MAR_HOST = "customer-marine-api.open-meteo.com" if OM_KEY else "marine-api.open-meteo.com"
+OM_AUTH     = f"&apikey={OM_KEY}" if OM_KEY else ""
 NZ_TZ  = timezone(timedelta(hours=12))
 # ── Marine source switch (M1, 9 Aug 2026) ────────────────────────────────
 # "metocean": MetOcean nearshore at lineup GPS, 10-day window, slimmed
@@ -466,13 +474,13 @@ def fetch_stormglass(lat, lng):
 
 def fetch_open_meteo_forecast(lat, lng):
     h = "wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,uv_index,temperature_2m,precipitation_probability"
-    return http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lng}"
-                    f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
+    return http_get(f"https://{OM_FC_HOST}/v1/forecast?latitude={lat}&longitude={lng}"
+                    f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}{OM_AUTH}")
 
 def fetch_open_meteo_marine(lat, lng):
     h = "wave_height,wave_direction,swell_wave_period,sea_surface_temperature"
-    return http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}"
-                    f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7&apikey={OM_KEY}")
+    return http_get(f"https://{OM_MAR_HOST}/v1/marine?latitude={lat}&longitude={lng}"
+                    f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}{OM_AUTH}")
 
 
 def _chunks(seq, n):
@@ -489,8 +497,8 @@ def fetch_open_meteo_forecast_batch(coords, chunk=12):
         lats = ",".join(f"{c[0]}" for c in ch)
         lngs = ",".join(f"{c[1]}" for c in ch)
         try:
-            data = http_get(f"https://customer-api.open-meteo.com/v1/forecast?latitude={lats}&longitude={lngs}"
-                            f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}&apikey={OM_KEY}", timeout=90)
+            data = http_get(f"https://{OM_FC_HOST}/v1/forecast?latitude={lats}&longitude={lngs}"
+                            f"&hourly={h}&wind_speed_unit=kn&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}{OM_AUTH}", timeout=90)
             out.extend(data if isinstance(data, list) else [data])
         except Exception as e:
             # One slow/failed chunk must not kill the cycle (2026-06-12, run #12:
@@ -515,8 +523,8 @@ def fetch_open_meteo_marine_batch(coords, chunk=12):
         lats = ",".join(f"{c[0]}" for c in ch)
         lngs = ",".join(f"{c[1]}" for c in ch)
         try:
-            data = http_get(f"https://customer-marine-api.open-meteo.com/v1/marine?latitude={lats}&longitude={lngs}"
-                            f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}&apikey={OM_KEY}", timeout=90)
+            data = http_get(f"https://{OM_MAR_HOST}/v1/marine?latitude={lats}&longitude={lngs}"
+                            f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days={FORECAST_DAYS}{OM_AUTH}", timeout=90)
             out.extend(data if isinstance(data, list) else [data])
         except Exception as e:
             print(f"  WARN marine chunk failed ({len(ch)} spots): {str(e)[:120]}", flush=True)
