@@ -38,7 +38,6 @@
    "riverton",
    "sumner-scarborough",
    "tairua",
-   "takapuna",
    "takou-bay",
    "tauroa-shippies",
    "tawharanui",
@@ -67,41 +66,9 @@
     "SW": 0.45,
     "NE": 0.85,
     "basis": "copied from Sumner 10 Aug (GSN serves byte-identical series for the pair; MetOcean raw differs 0.03m); SE 0.30 is its own 9 Aug fit. Validate Wed 12 Aug."
-   },
-   "takapuna": {
-    "SW": 0.09,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "orewa": {
-    "SW": 0.33,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "tawharanui": {
-    "SW": 0.43,
-    "E": 0.33,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "omaha": {
-    "SW": 0.44,
-    "E": 0.52,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "waipu-cove": {
-    "SW": 0.58,
-    "SE": 0.46,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "te-arai": {
-    "SW": 0.65,
-    "E": 0.61,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
-   },
-   "mangawhai": {
-    "SW": 0.67,
-    "E": 0.68,
-    "basis": "NI east coast review batch 1, 12 Aug SW regime (gsn_2026-08-12_batch1.json), n>=6 slots per sector, single capture; re-check on next SW event, tolerance +/-0.15"
    }
-  }
+  },
+  "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work."
  },
  "allans-beach": {
   "S": 1.15
@@ -144,9 +111,7 @@
   "S": 1.2
  },
  "mangawhai": {
-  "N": 1.0,
-  "SW": 0.67,
-  "E": 0.68
+  "N": 1.0
  },
  "matata": {
   "N": 1.2
@@ -168,17 +133,14 @@
   "N": 0.45
  },
  "omaha": {
-  "N": 0.4,
-  "SW": 0.44,
-  "E": 0.52
+  "N": 0.4
  },
  "onoke-lake-ferry": {
   "SW": 1.05,
   "S": 0.95
  },
  "orewa": {
-  "SE": 0.25,
-  "SW": 0.33
+  "SE": 0.25
  },
  "otama": {
   "N": 0.7
@@ -218,9 +180,7 @@
   "SW": 1.2
  },
  "tawharanui": {
-  "N": 1.0,
-  "SW": 0.43,
-  "E": 0.33
+  "N": 1.0
  },
  "taylors-mistake": {
   "SE": 0.3,
@@ -229,9 +189,7 @@
   "NE": 0.85
  },
  "te-arai": {
-  "N": 1.05,
-  "SW": 0.65,
-  "E": 0.61
+  "N": 1.05
  },
  "te-awanga": {
   "SE": 0.45
@@ -249,9 +207,7 @@
   "S": 0.3
  },
  "waipu-cove": {
-  "N": 0.85,
-  "SW": 0.58,
-  "SE": 0.46
+  "N": 0.85
  },
  "wairoa": {
   "S": 0.85
@@ -265,8 +221,5 @@
  "whareakeake-murdering-bay": {
   "S": 0.2,
   "E": 0.45
- },
- "takapuna": {
-  "SW": 0.09
  }
 }
