@@ -671,8 +671,9 @@ def main():
                     # per-slot factor from dominant swell direction, applied
                     # inside metocean_slot_fields. Separate from
                     # adjustment_factor, which stays untouched for rollback.
-                    from _metocean import D1_CURVES, metocean_slot_fields
+                    from _metocean import D1_CURVES, D2_SMOOTH, metocean_slot_fields
                     d1_curve = D1_CURVES.get(s["id"]) or {}
+                    d2_smooth = D2_SMOOTH.get(s["id"])
                     factor = 1.0
                     mo = mo_by_spot.get(s["id"])
                     if mo is None:
@@ -712,7 +713,7 @@ def main():
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
                     if MARINE_MODE == "metocean":
                         # MetOcean arrays are built on slot_keys order, index j_slot.
-                        flds = metocean_slot_fields(mo, j_slot, d1_curve)
+                        flds = metocean_slot_fields(mo, j_slot, d1_curve, d2_smooth)
                         if flds is None:
                             continue     # no data for this slot; keep stale row
                         wave_m = flds["wave_m"]; period_s = flds["period_s"]

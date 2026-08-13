@@ -18,7 +18,7 @@ factor 1.0. These are SEPARATE from spots.adjustment_factor on purpose: the
 Stormglass factors stay untouched in the DB so MARINE_MODE=stormglass rolls
 back cleanly.
 """
-import json, os, urllib.request
+import json, math, os, urllib.request
 from pathlib import Path
 
 MO_URL = "https://forecast-v2.metoceanapi.com/point/time"
@@ -36,6 +36,34 @@ _SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 def sector_name(deg):
     return _SECT[int(((deg + 22.5) % 360) // 45)]
+
+# ── D2 smooth directional shelter (Che approved 12 Aug 2026) ─────────────
+# Heavily sheltered spots cannot be described by 45deg bins: an unobserved
+# sector defaults to 1.0, so the factor cliffs (Te Arai read 0.7/0.4/0.7 on
+# 15 Aug with nothing changing in the ocean), and one factor per slot jumps
+# whenever the two bands swap dominance.
+#
+#   shelter(theta) = lo + (hi - lo) * ((1 + cos(theta - open)) / 2) ** p
+#
+# applied to EACH band by its own direction, recombined by energy. Continuous
+# in direction, and independent of which band happens to be larger, so
+# neither cliff can occur. Fitted per spot on the 4/9/12 Aug captures and
+# validated leave-one-capture-out: out-of-sample error 0.210 m vs 0.295 for
+# the bins and 0.325 raw. Applied ONLY where it beat the bins out-of-sample;
+# open-coast spots keep D1_CURVES, where a 4-parameter fit only adds noise.
+D2_SMOOTH = {
+    "takapuna": {"open_deg": 351, "lo": 0.06, "hi": 0.60, "p": 4.0},
+    "orewa":    {"open_deg": 21,  "lo": 0.23, "hi": 0.50, "p": 6.5},
+    "omaha":    {"open_deg": 81,  "lo": 0.00, "hi": 0.55, "p": 0.5},
+}
+
+
+def smooth_shelter(deg, s):
+    """Directional response in [lo, hi]; 1.0 when the direction is unknown."""
+    if deg is None:
+        return 1.0
+    c = (1.0 + math.cos(math.radians(deg - s["open_deg"]))) / 2.0
+    return s["lo"] + (s["hi"] - s["lo"]) * (c ** s["p"])
 
 MO_VARS = ["wave.height", "wave.period.peak",
            "wave.height.above-8s", "wave.period.above-8s.peak", "wave.direction.above-8s.peak",
@@ -82,15 +110,15 @@ def fetch_metocean(lat, lng, from_utc, n_slots, timeout=60):
     return out
 
 
-def metocean_slot_fields(mo, j, curve):
+def metocean_slot_fields(mo, j, curve, smooth=None):
     """Map MetOcean arrays at slot index j onto our slot_forecast fields.
     Returns None when the slot has no total height (caller keeps stale row).
-    prim = the BIGGER band (so the displayed swell row is the wave you see),
-    period_s = overall spectrum peak (GSN's number).
+    prim = the groundswell row, period_s = overall spectrum peak (GSN's number).
 
-    `curve` is the spot's D1 sector dict ({} for none). The factor is chosen
-    PER SLOT from the dominant band's direction, the same convention the
-    curves were fitted under."""
+    Shelter: `smooth` (a D2_SMOOTH entry) wins when present and is applied
+    per band; otherwise `curve` (the spot's D1 sector dict, {} for none) is
+    applied per slot from the dominant band's direction, the convention those
+    were fitted under."""
     tot = mo["wave.height"][j] if j < len(mo["wave.height"]) else None
     if tot is None:
         return None
@@ -108,25 +136,39 @@ def metocean_slot_fields(mo, j, curve):
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = a_h, a_p, a_d, b_h, b_p, b_d
     else:
         prim_h, prim_p, prim_d, sec_h, sec_p, sec_d = b_h, b_p, b_d, a_h, a_p, a_d
-    factor = 1.0
-    if curve:
-        # D1 keeps its FITTED convention: the factor follows the DOMINANT
-        # band's direction (that is how the curves were derived), with the
-        # other band as fallback when the direction is null.
-        a_dominant = (a_h or 0) >= (b_h or 0)
-        dom_d = a_d if a_dominant else b_d
-        other_d = b_d if a_dominant else a_d
-        d = dom_d if dom_d is not None else other_d
-        if d is not None:
-            factor = curve.get(sector_name(d), 1.0)
+    if smooth:
+        # D2: attenuate each band by ITS OWN direction, recombine by energy.
+        # No slot-level choice is made, so a band swap cannot move the number.
+        ad = a_d if a_d is not None else b_d
+        bd = b_d if b_d is not None else a_d
+        fa = smooth_shelter(ad, smooth)
+        fb = smooth_shelter(bd, smooth)
+        ah, bh = (a_h or 0.0), (b_h or 0.0)
+        tot_s = math.sqrt((ah * fa) ** 2 + (bh * fb) ** 2)
+        # keep the published total consistent with the bands we publish
+        tot, factor = tot_s, 1.0
+        prim_f, sec_f = (fa, fb) if (a_h or 0) >= 0.05 else (fb, fa)
+    else:
+        factor = 1.0
+        if curve:
+            # D1 keeps its FITTED convention: the factor follows the DOMINANT
+            # band's direction (that is how the curves were derived), with the
+            # other band as fallback when the direction is null.
+            a_dominant = (a_h or 0) >= (b_h or 0)
+            dom_d = a_d if a_dominant else b_d
+            other_d = b_d if a_dominant else a_d
+            d = dom_d if dom_d is not None else other_d
+            if d is not None:
+                factor = curve.get(sector_name(d), 1.0)
+        prim_f = sec_f = factor
     pk = mo["wave.period.peak"][j]
     return {
         "wave_m": round(tot * factor, 2),
         "period_s": round(pk, 1) if pk is not None else (
             round(prim_p, 1) if prim_p is not None else None),
         "swell_deg": round(prim_d) if prim_d is not None else None,
-        "prim_swell_h": round(prim_h * factor, 2) if prim_h is not None else None,
-        "sec_swell_h": round(sec_h * factor, 2) if sec_h is not None else None,
+        "prim_swell_h": round(prim_h * prim_f, 2) if prim_h is not None else None,
+        "sec_swell_h": round(sec_h * sec_f, 2) if sec_h is not None else None,
         "sec_swell_period": round(sec_p, 1) if sec_p is not None else None,
         "sec_swell_deg": round(sec_d) if sec_d is not None else None,
         "windwave_h": None,   # absorbed into the below-8s band, GSN convention
