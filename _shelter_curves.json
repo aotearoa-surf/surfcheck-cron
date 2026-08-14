@@ -29,15 +29,12 @@
    "omaha",
    "onoke-lake-ferry",
    "orewa",
-   "otama",
    "patiti-pt-timaru",
-   "pauanui",
    "raglan-tirohanga-indies",
    "rangiwhakaoma-castlepoint",
    "riversdale",
    "riverton",
    "sumner-scarborough",
-   "tairua",
    "takou-bay",
    "tauroa-shippies",
    "tawharanui",
@@ -51,7 +48,6 @@
    "waipu-cove",
    "wairoa",
    "westport",
-   "whangapoua-newchums",
    "whareakeake-murdering-bay"
   ],
   "note": "Che approved apply 9 Aug night, amplifiers included. Adjust or remove per spot by editing this file.",
@@ -68,7 +64,14 @@
     "basis": "copied from Sumner 10 Aug (GSN serves byte-identical series for the pair; MetOcean raw differs 0.03m); SE 0.30 is its own 9 Aug fit. Validate Wed 12 Aug."
    }
   },
-  "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work."
+  "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work.",
+  "superseded_by_d2": [
+   "matarangi",
+   "otama",
+   "whangapoua-newchums",
+   "tairua",
+   "pauanui"
+  ]
  },
  "allans-beach": {
   "S": 1.15
@@ -142,14 +145,8 @@
  "orewa": {
   "SE": 0.25
  },
- "otama": {
-  "N": 0.7
- },
  "patiti-pt-timaru": {
   "S": 1.45
- },
- "pauanui": {
-  "N": 0.75
  },
  "raglan-tirohanga-indies": {
   "W": 0.75,
@@ -169,9 +166,6 @@
   "SE": 0.35,
   "SW": 0.45,
   "NE": 0.85
- },
- "tairua": {
-  "N": 1.0
  },
  "takou-bay": {
   "E": 0.6
@@ -214,9 +208,6 @@
  },
  "westport": {
   "W": 0.9
- },
- "whangapoua-newchums": {
-  "N": 1.1
  },
  "whareakeake-murdering-bay": {
   "S": 0.2,

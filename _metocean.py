@@ -58,6 +58,18 @@ D2_SMOOTH = {
     # error on 4/12/15 Aug together (0.094 -> 0.082). lo/hi = 0.23/0.50 x1.40.
     "orewa":    {"open_deg": 21,  "lo": 0.32, "hi": 0.70, "p": 6.5},
     "omaha":    {"open_deg": 81,  "lo": 0.00, "hi": 0.55, "p": 0.5},
+    # Batch 2, Coromandel (Che approved 15 Aug). Fitted on the 4 Aug (S) and
+    # 15 Aug (SW/E) captures, validated leave-one-capture-out; smooth beat both
+    # raw and the D1 bins out-of-sample on all five. The deeply sheltered
+    # Mercury Bay bays (matarangi, otama) fit near-flat low curves (p~0.3):
+    # they block every direction, so a robust near-constant attenuation, not a
+    # fragile directional one. Whangamata and Hotwater left on raw/current
+    # (open beaches, already accurate; a 4-param fit would only add noise).
+    "matarangi":           {"open_deg": 315, "lo": 0.21, "hi": 0.45, "p": 0.3},
+    "otama":               {"open_deg": 324, "lo": 0.14, "hi": 0.55, "p": 0.3},
+    "whangapoua-newchums": {"open_deg": 87,  "lo": 0.30, "hi": 0.85, "p": 6.0},
+    "tairua":              {"open_deg": 27,  "lo": 0.52, "hi": 1.05, "p": 2.5},
+    "pauanui":             {"open_deg": 30,  "lo": 0.42, "hi": 0.90, "p": 2.0},
 }
 
 
