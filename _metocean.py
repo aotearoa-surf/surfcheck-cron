@@ -53,7 +53,10 @@ def sector_name(deg):
 # open-coast spots keep D1_CURVES, where a 4-parameter fit only adds noise.
 D2_SMOOTH = {
     "takapuna": {"open_deg": 351, "lo": 0.06, "hi": 0.60, "p": 4.0},
-    "orewa":    {"open_deg": 21,  "lo": 0.23, "hi": 0.50, "p": 6.5},
+    # Orewa response scaled x1.40 (Che 15 Aug: reading small). The scale is
+    # the all-four-regime optimum, not a fit to this week alone: it lowers
+    # error on 4/12/15 Aug together (0.094 -> 0.082). lo/hi = 0.23/0.50 x1.40.
+    "orewa":    {"open_deg": 21,  "lo": 0.32, "hi": 0.70, "p": 6.5},
     "omaha":    {"open_deg": 81,  "lo": 0.00, "hi": 0.55, "p": 0.5},
 }
 
