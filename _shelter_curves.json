@@ -10,7 +10,6 @@
    "aramoana",
    "awatoto",
    "blue-cliffs",
-   "cray-bay",
    "forestry",
    "gizzy-pipe",
    "henderson-bay",
@@ -42,7 +41,6 @@
    "the-cut-blenheim",
    "victory-beach",
    "waihau-bay-loisells",
-   "waimarama",
    "wairoa",
    "westport",
    "whareakeake-murdering-bay"
@@ -67,7 +65,9 @@
    "otama",
    "whangapoua-newchums",
    "tairua",
-   "pauanui"
+   "pauanui",
+   "waimarama",
+   "cray-bay"
   ],
   "flat_factor_interim": {
    "spots": [
@@ -90,9 +90,6 @@
  },
  "blue-cliffs": {
   "SW": 0.75
- },
- "cray-bay": {
-  "S": 0.65
  },
  "forestry": {
   "N": 0.95
@@ -195,9 +192,6 @@
  },
  "waihau-bay-loisells": {
   "S": 1.05
- },
- "waimarama": {
-  "S": 0.3
  },
  "wairoa": {
   "S": 0.85

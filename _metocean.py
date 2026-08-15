@@ -87,6 +87,12 @@ D2_SMOOTH = {
     "whangapoua-newchums": {"open_deg": 87,  "lo": 0.30, "hi": 0.85, "p": 6.0},
     "tairua":              {"open_deg": 27,  "lo": 0.52, "hi": 1.05, "p": 2.5},
     "pauanui":             {"open_deg": 30,  "lo": 0.42, "hi": 0.90, "p": 2.0},
+    # Batch 5, Hawke's Bay (Che approved 16 Aug). Both SE-sheltered spots
+    # over-read on the 16 Aug SE swell because their old S-only bins left SE
+    # uncovered. Fitted on 4 Aug (S) + 9 Aug (N) + 16 Aug (SE), validated
+    # leave-one-capture-out: waimarama 1.39 raw -> 0.13, cray-bay 0.75 -> 0.05.
+    "waimarama":           {"open_deg": 63,  "lo": 0.06, "hi": 0.70, "p": 1.0},
+    "cray-bay":            {"open_deg": 129, "lo": 0.53, "hi": 0.75, "p": 5.0},
 }
 
 
