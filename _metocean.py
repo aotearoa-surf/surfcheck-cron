@@ -32,6 +32,23 @@ MO_URL = "https://forecast-v2.metoceanapi.com/point/time"
 # in the site repo. Applied-spot list in this file's _meta.applied_spots.
 D1_CURVES = json.loads((Path(__file__).parent / "_shelter_curves.json")
                        .read_text(encoding="utf-8"))
+
+# ── Flat all-direction factors (INTERIM, Che approved 16 Aug 2026) ────────
+# A single multiplier on the final wave, applied regardless of swell
+# direction. Composes on top of any curve/smooth model (here the three run
+# raw + flat). Used where the over-read is real but direction-dependent and
+# we do not yet have enough swell captures to fit a stable per-spot curve
+# without overfitting (see brember_options / own_data_test: every fitted
+# curve lost to raw out-of-sample on only 3 captures).
+# TE ARAI CLUSTER, REVISIT: these NE-facing Bream Bay beaches over-read on
+# S/SW swell, are accurate on N. A flat factor fixes the S/SW case at the
+# cost of a mild under-read on pure N. Replace with a proper per-spot smooth
+# curve once 2-3 more S/SW/E captures exist. Pooled-best over 4/9/12 Aug.
+FLAT_FACTORS = {
+    "mangawhai":  0.90,   # least sheltered of the cluster
+    "waipu-cove": 0.75,
+    "tawharanui": 0.70,   # most sheltered
+}
 _SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 def sector_name(deg):
@@ -125,7 +142,7 @@ def fetch_metocean(lat, lng, from_utc, n_slots, timeout=60):
     return out
 
 
-def metocean_slot_fields(mo, j, curve, smooth=None):
+def metocean_slot_fields(mo, j, curve, smooth=None, flat=1.0):
     """Map MetOcean arrays at slot index j onto our slot_forecast fields.
     Returns None when the slot has no total height (caller keeps stale row).
     prim = the groundswell row, period_s = overall spectrum peak (GSN's number).
@@ -176,6 +193,8 @@ def metocean_slot_fields(mo, j, curve, smooth=None):
             if d is not None:
                 factor = curve.get(sector_name(d), 1.0)
         prim_f = sec_f = factor
+    # Flat all-direction factor composes on top of whatever shelter model ran.
+    factor *= flat; prim_f *= flat; sec_f *= flat
     pk = mo["wave.period.peak"][j]
     return {
         "wave_m": round(tot * factor, 2),

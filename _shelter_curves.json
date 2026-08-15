@@ -19,7 +19,6 @@
    "mahia-north-coast",
    "mahia-open-coast",
    "mangamaunu",
-   "mangawhai",
    "matata",
    "meatworks",
    "mt-maunganui-nth",
@@ -37,7 +36,6 @@
    "sumner-scarborough",
    "takou-bay",
    "tauroa-shippies",
-   "tawharanui",
    "taylors-mistake",
    "te-arai",
    "te-awanga",
@@ -45,7 +43,6 @@
    "victory-beach",
    "waihau-bay-loisells",
    "waimarama",
-   "waipu-cove",
    "wairoa",
    "westport",
    "whareakeake-murdering-bay"
@@ -71,7 +68,15 @@
    "whangapoua-newchums",
    "tairua",
    "pauanui"
-  ]
+  ],
+  "flat_factor_interim": {
+   "spots": [
+    "mangawhai",
+    "waipu-cove",
+    "tawharanui"
+   ],
+   "note": "Te Arai cluster on INTERIM flat factors in _metocean.FLAT_FACTORS (0.90/0.75/0.70). REVISIT: fit per-spot smooth curves once 2-3 more S/SW/E captures exist; flat under-reads on pure N."
+  }
  },
  "allans-beach": {
   "S": 1.15
@@ -112,9 +117,6 @@
  },
  "mangamaunu": {
   "S": 1.2
- },
- "mangawhai": {
-  "N": 1.0
  },
  "matata": {
   "N": 1.2
@@ -173,9 +175,6 @@
  "tauroa-shippies": {
   "SW": 1.2
  },
- "tawharanui": {
-  "N": 1.0
- },
  "taylors-mistake": {
   "SE": 0.3,
   "S": 0.2,
@@ -199,9 +198,6 @@
  },
  "waimarama": {
   "S": 0.3
- },
- "waipu-cove": {
-  "N": 0.85
  },
  "wairoa": {
   "S": 0.85
