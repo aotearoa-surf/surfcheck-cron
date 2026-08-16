@@ -31,6 +31,7 @@
    "patiti-pt-timaru",
    "porridge",
    "raglan-tirohanga-indies",
+   "raglan-waikeri-manu",
    "rangiwhakaoma-castlepoint",
    "riversdale",
    "riverton",
@@ -40,6 +41,7 @@
    "taylors-mistake",
    "te-arai",
    "te-awanga",
+   "te-henga-bethells",
    "the-cut-blenheim",
    "victory-beach",
    "waihau-bay-loisells",
@@ -50,7 +52,8 @@
   "note": "Che approved apply 9 Aug night, amplifiers included. Adjust or remove per spot by editing this file.",
   "provisional": {},
   "gps_recheck": {
-   "porridge": "Applied interim {S:1.35} 16 Aug (read -27% low vs GSN, SC 1.97 vs 2.68 on the S swell). A gap this large may be a lineup-GPS shadow/inshore of the reef, not pure attenuation. RECHECK the lineup GPS; if repositioned, re-evaluate whether the amplify is still needed."
+   "porridge": "Applied interim {S:1.35} 16 Aug (read -27% low vs GSN, SC 1.97 vs 2.68 on the S swell). A gap this large may be a lineup-GPS shadow/inshore of the reef, not pure attenuation. RECHECK the lineup GPS; if repositioned, re-evaluate whether the amplify is still needed.",
+   "te-henga-bethells": "Applied {W:1.25} 16 Aug (read -20% low, SC 2.06 vs GSN 2.58 on the W/SW swell). GSN rates Bethells ~25% bigger than Piha (more exposed); our grid treats them equal. Likely genuine exposure, but glance at the lineup GPS to rule out an inshore placement."
   },
   "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work.",
   "superseded_by_d2": [
@@ -150,6 +153,10 @@
   "W": 0.75,
   "SW": 0.7
  },
+ "raglan-waikeri-manu": {
+  "W": 0.75,
+  "SW": 0.7
+ },
  "rangiwhakaoma-castlepoint": {
   "S": 1.05
  },
@@ -170,6 +177,9 @@
  },
  "te-awanga": {
   "SE": 0.45
+ },
+ "te-henga-bethells": {
+  "W": 1.25
  },
  "the-cut-blenheim": {
   "S": 0.55
