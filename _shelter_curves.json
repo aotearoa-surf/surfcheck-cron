@@ -9,6 +9,7 @@
    "allans-beach",
    "aramoana",
    "awatoto",
+   "back-beach",
    "blue-cliffs",
    "forestry",
    "gizzy-pipe",
@@ -83,6 +84,9 @@
  },
  "awatoto": {
   "S": 0.65
+ },
+ "back-beach": {
+  "W": 0.78
  },
  "blue-cliffs": {
   "SW": 0.75
