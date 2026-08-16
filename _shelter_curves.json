@@ -46,19 +46,7 @@
    "whareakeake-murdering-bay"
   ],
   "note": "Che approved apply 9 Aug night, amplifiers included. Adjust or remove per spot by editing this file.",
-  "provisional": {
-   "sumner-scarborough": {
-    "SW": 0.45,
-    "NE": 0.85,
-    "basis": "Che-approved 10 Aug from ~4 fresh GSN slots each (screenshot capture, 10 Aug am); below the 6-slot bar, validate against the Wed 12 Aug capture"
-   },
-   "taylors-mistake": {
-    "S": 0.2,
-    "SW": 0.45,
-    "NE": 0.85,
-    "basis": "copied from Sumner 10 Aug (GSN serves byte-identical series for the pair; MetOcean raw differs 0.03m); SE 0.30 is its own 9 Aug fit. Validate Wed 12 Aug."
-   }
-  },
+  "provisional": {},
   "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work.",
   "superseded_by_d2": [
    "matarangi",
@@ -76,6 +64,10 @@
     "tawharanui"
    ],
    "note": "Te Arai cluster on INTERIM flat factors in _metocean.FLAT_FACTORS (0.90/0.75/0.70). REVISIT: fit per-spot smooth curves once 2-3 more S/SW/E captures exist; flat under-reads on pure N."
+  },
+  "validated": {
+   "sumner-scarborough": "3 swells (S/N/SE), MAE 0.198 on 16 Aug",
+   "taylors-mistake": "3 swells, MAE 0.184 on 16 Aug, tracks Sumner"
   }
  },
  "allans-beach": {
