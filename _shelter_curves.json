@@ -13,6 +13,7 @@
    "forestry",
    "gizzy-pipe",
    "henderson-bay",
+   "karamea",
    "karitane-beach",
    "kekerengu",
    "mahia-north-coast",
@@ -87,6 +88,9 @@
  },
  "henderson-bay": {
   "SE": 0.75
+ },
+ "karamea": {
+  "W": 1.2
  },
  "karitane-beach": {
   "S": 0.75
@@ -173,7 +177,7 @@
   "S": 0.85
  },
  "westport": {
-  "W": 0.9
+  "W": 0.78
  },
  "whareakeake-murdering-bay": {
   "S": 0.2,
