@@ -32,10 +32,8 @@
    "rangiwhakaoma-castlepoint",
    "riversdale",
    "riverton",
-   "sumner-scarborough",
    "takou-bay",
    "tauroa-shippies",
-   "taylors-mistake",
    "te-arai",
    "te-awanga",
    "the-cut-blenheim",
@@ -55,7 +53,9 @@
    "tairua",
    "pauanui",
    "waimarama",
-   "cray-bay"
+   "cray-bay",
+   "sumner-scarborough",
+   "taylors-mistake"
   ],
   "flat_factor_interim": {
    "spots": [
@@ -64,10 +64,6 @@
     "tawharanui"
    ],
    "note": "Te Arai cluster on INTERIM flat factors in _metocean.FLAT_FACTORS (0.90/0.75/0.70). REVISIT: fit per-spot smooth curves once 2-3 more S/SW/E captures exist; flat under-reads on pure N."
-  },
-  "validated": {
-   "sumner-scarborough": "3 swells (S/N/SE), MAE 0.198 on 16 Aug",
-   "taylors-mistake": "3 swells, MAE 0.184 on 16 Aug, tracks Sumner"
   }
  },
  "allans-beach": {
@@ -152,23 +148,11 @@
  "riverton": {
   "SW": 0.65
  },
- "sumner-scarborough": {
-  "S": 0.2,
-  "SE": 0.35,
-  "SW": 0.45,
-  "NE": 0.85
- },
  "takou-bay": {
   "E": 0.6
  },
  "tauroa-shippies": {
   "SW": 1.2
- },
- "taylors-mistake": {
-  "SE": 0.3,
-  "S": 0.2,
-  "SW": 0.45,
-  "NE": 0.85
  },
  "te-arai": {
   "N": 1.05

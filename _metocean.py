@@ -104,6 +104,15 @@ D2_SMOOTH = {
     # (S/SW), hi CAPPED at 1.0 (no NNW data to justify amplify), leave-one-out
     # 0.094 from 1.43 raw. Opens NNW into Cook Strait; near-fully blocked S/SW.
     "titahi-bay":          {"open_deg": 342, "lo": 0.12, "hi": 1.00, "p": 6.0},
+    # Sumner + Taylors converted from D1 bins to smooth (Che 16 Aug): the bins
+    # left W/NW/N/E uncovered, so a W windsea band that briefly dominated ran
+    # raw x1.0 and SPIKED (Tue 18 Aug read 1.42 m among 0.3-0.6 m slots). The
+    # smooth curve is continuous over 360deg (no gap): the same W band now
+    # gets ~lo and the slot reads ~0.48. hi capped 1.0 (sheltered spots don't
+    # amplify). Fitted 4/9/12/16 Aug, hi-capped OOS 0.32/0.27, worst-slot
+    # 0.43/0.28 (was ~1.0 spike). GSN serves the pair near-identically.
+    "sumner-scarborough":  {"open_deg": 60,  "lo": 0.03, "hi": 1.00, "p": 1.5},
+    "taylors-mistake":     {"open_deg": 100, "lo": 0.06, "hi": 1.00, "p": 6.0},
 }
 
 
