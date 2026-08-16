@@ -32,8 +32,10 @@
    "rangiwhakaoma-castlepoint",
    "riversdale",
    "riverton",
+   "sumner-scarborough",
    "takou-bay",
    "tauroa-shippies",
+   "taylors-mistake",
    "te-arai",
    "te-awanga",
    "the-cut-blenheim",
@@ -53,9 +55,7 @@
    "tairua",
    "pauanui",
    "waimarama",
-   "cray-bay",
-   "sumner-scarborough",
-   "taylors-mistake"
+   "cray-bay"
   ],
   "flat_factor_interim": {
    "spots": [
@@ -178,5 +178,17 @@
  "whareakeake-murdering-bay": {
   "S": 0.2,
   "E": 0.45
+ },
+ "sumner-scarborough": {
+  "S": 0.2,
+  "SE": 0.35,
+  "SW": 0.45,
+  "NE": 0.85
+ },
+ "taylors-mistake": {
+  "SE": 0.3,
+  "S": 0.2,
+  "SW": 0.45,
+  "NE": 0.85
  }
 }
