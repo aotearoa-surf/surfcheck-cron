@@ -14,6 +14,7 @@
    "forestry",
    "gizzy-pipe",
    "henderson-bay",
+   "himatangi",
    "karamea",
    "karitane-beach",
    "kekerengu",
@@ -43,6 +44,7 @@
    "te-arai",
    "te-awanga",
    "te-henga-bethells",
+   "the-bluff",
    "the-cut-blenheim",
    "victory-beach",
    "waihau-bay-loisells",
@@ -54,7 +56,8 @@
   "provisional": {},
   "gps_recheck": {
    "porridge": "Applied interim {S:1.35} 16 Aug (read -27% low vs GSN, SC 1.97 vs 2.68 on the S swell). A gap this large may be a lineup-GPS shadow/inshore of the reef, not pure attenuation. RECHECK the lineup GPS; if repositioned, re-evaluate whether the amplify is still needed.",
-   "te-henga-bethells": "Applied {W:1.25} 16 Aug (read -20% low, SC 2.06 vs GSN 2.58 on the W/SW swell). GSN rates Bethells ~25% bigger than Piha (more exposed); our grid treats them equal. Likely genuine exposure, but glance at the lineup GPS to rule out an inshore placement."
+   "te-henga-bethells": "Applied {W:1.25} 16 Aug (read -20% low, SC 2.06 vs GSN 2.58 on the W/SW swell). GSN rates Bethells ~25% bigger than Piha (more exposed); our grid treats them equal. Likely genuine exposure, but glance at the lineup GPS to rule out an inshore placement.",
+   "himatangi": "Applied {W:1.40} 16 Aug (read -30% low, SC 1.02 vs GSN 1.45 on the W/SW swell). Manawatu beach; a 40% amplify is aggressive - RECHECK the lineup GPS (possible inshore placement) before trusting the factor long-term. Whole batch-13 region (Manawatu + Northland far-west) trended 8-30% low on this one swell; revisit on a 2nd W swell for a possible uniform regional amplify."
   },
   "reverted_2026_08_12": "Batch-1 NI east coast sectors reverted at Che's call: fitted on the groundswell-row direction while the code keys off the dominant band, and hard 45deg bins with a 1.0 default produce slot-to-slot cliffs (Te Arai Sat 15 read 0.7/0.4/0.7). Superseded by the smooth directional-response work.",
   "superseded_by_d2": [
@@ -99,6 +102,9 @@
  },
  "henderson-bay": {
   "SE": 0.75
+ },
+ "himatangi": {
+  "W": 1.4
  },
  "karamea": {
   "W": 1.2
@@ -184,6 +190,9 @@
  },
  "te-henga-bethells": {
   "W": 1.25
+ },
+ "the-bluff": {
+  "W": 1.2
  },
  "the-cut-blenheim": {
   "S": 0.55
