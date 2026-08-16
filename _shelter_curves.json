@@ -181,12 +181,12 @@
  },
  "sumner-scarborough": {
   "S": 0.2,
-  "SE": 0.35,
+  "SE": 0.5,
   "SW": 0.45,
   "NE": 0.85
  },
  "taylors-mistake": {
-  "SE": 0.3,
+  "SE": 0.5,
   "S": 0.2,
   "SW": 0.45,
   "NE": 0.85
