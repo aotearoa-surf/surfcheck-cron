@@ -48,6 +48,11 @@ FLAT_FACTORS = {
     "mangawhai":  0.90,   # least sheltered of the cluster
     "waipu-cove": 0.75,
     "tawharanui": 0.70,   # most sheltered
+    # Paekakariki: Kapiti Island shelter, raw over-reads +0.58 on W/SW. Only
+    # ONE capture exists (no GoodSurfNow page on 4 Aug), so a validated curve
+    # is impossible; interim flat from the 16 Aug fit. REVISIT with a 2nd
+    # capture, then fit a proper smooth curve.
+    "paekakariki": 0.55,
 }
 _SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
@@ -93,6 +98,12 @@ D2_SMOOTH = {
     # leave-one-capture-out: waimarama 1.39 raw -> 0.13, cray-bay 0.75 -> 0.05.
     "waimarama":           {"open_deg": 63,  "lo": 0.06, "hi": 0.70, "p": 1.0},
     "cray-bay":            {"open_deg": 129, "lo": 0.53, "hi": 0.75, "p": 5.0},
+    # Batch 6, Wellington (Che approved 16 Aug). Titahi Bay is the most
+    # sheltered spot in the fleet (behind Mana Island): raw over-read +1.21 m
+    # on the 16 Aug S/SW swell (1.65 vs GSN 0.44). Fitted 4 Aug (S) + 16 Aug
+    # (S/SW), hi CAPPED at 1.0 (no NNW data to justify amplify), leave-one-out
+    # 0.094 from 1.43 raw. Opens NNW into Cook Strait; near-fully blocked S/SW.
+    "titahi-bay":          {"open_deg": 342, "lo": 0.12, "hi": 1.00, "p": 6.0},
 }
 
 
