@@ -183,7 +183,6 @@ def main():
         niwa_cache = {}        # cluster -> events list
         seal_cache = {}        # cluster -> sea_level array + time array
         all_rows = []
-        cycle_fetched_at = datetime.now(timezone.utc).isoformat()
 
         for idx, s in enumerate(spots, 1):
             try:
@@ -249,7 +248,12 @@ def main():
                             "tide_event_type": ev["type"] if ev else None,
                             "tide_event_time": ev["time"] if ev else None,
                             "tide_event_height_m": ev["height"] if ev else None,
-                            "fetched_at": cycle_fetched_at,
+                            # NB: deliberately NOT setting fetched_at here. That
+                            # column marks the wave-forecast fetch cycle (set by
+                            # _fetch_main.py) and drives forecast_integrity()'s
+                            # freshness/partial-write check. A tides-only run
+                            # bumping it made the real wave data look "stale" and
+                            # tripped false PARTIAL WRITE watchdog alerts.
                         })
                 if idx % 20 == 0:
                     print(f"  {idx}/{len(spots)} spots · {len(niwa_cache)} NIWA clusters cached", flush=True)
