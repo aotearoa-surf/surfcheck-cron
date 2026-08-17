@@ -545,6 +545,11 @@ def build_slot_keys():
             keys.append(slot_key(base.replace(hour=h)))
     return keys
 
+def _key_day_offset(key, today_nz):
+    """day_offset (0 = today) for a slot_key like '2026-08-16T12'."""
+    d = datetime.strptime(key.split("T")[0], "%Y-%m-%d").date()
+    return (d - today_nz.date()).days
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Main
@@ -568,6 +573,7 @@ def main():
         # 1. Marine source: MetOcean per spot (M1) or Stormglass per pin.
         sg_by_pin = {}
         mo_by_spot = {}
+        mo_errors = {}   # spot_id -> (http_status|None, message) for escalation record
         if MARINE_MODE == "metocean":
             from _metocean import fetch_metocean
             print(f"[1/3] Fetching MetOcean for {len(spots)} spots (lineup GPS)…", flush=True)
@@ -581,6 +587,7 @@ def main():
                     print(f"  ✗ {s_mo['id']}: {str(e)[:120]}", flush=True)
                     errors += 1
                     mo_by_spot[s_mo["id"]] = None
+                    mo_errors[s_mo["id"]] = (getattr(e, "code", None), str(e)[:300])
                 if (i_mo + 1) % 25 == 0:
                     print(f"  {i_mo+1}/{len(spots)}", flush=True)
             mo_failed = sum(1 for v in mo_by_spot.values() if v is None)
@@ -943,6 +950,60 @@ def main():
             backfill()
         except Exception as e:
             print(f"  spot_now skipped: {e}", flush=True)
+
+        # 3d. Record MetOcean delivery faults (metocean mode only) so shortfalls
+        #     can be escalated to MetOcean with full detail. Each stale spot is
+        #     attributed to the RIGHT source: a MetOcean fetch error, MetOcean
+        #     noData on the NEAR horizon, or an Open-Meteo skip (NOT MetOcean).
+        #     Far-tail (day>6) gaps are MetOcean's normal 10-day horizon limit and
+        #     are deliberately not logged. Wrapped so logging never breaks a cycle.
+        if MARINE_MODE == "metocean":
+            try:
+                NEAR_MAX_DAY = 6
+                near_expected = sum(1 for k in slot_keys
+                                    if _key_day_offset(k, today_nz) <= NEAR_MAX_DAY)
+                near_deliv, tot_deliv = {}, {}
+                for r in all_rows:
+                    sid = r["spot_id"]
+                    tot_deliv[sid] = tot_deliv.get(sid, 0) + 1
+                    if r["day_offset"] <= NEAR_MAX_DAY:
+                        near_deliv[sid] = near_deliv.get(sid, 0) + 1
+                incidents = []
+                for s in spots:
+                    sid = s["id"]
+                    near_missing = max(0, near_expected - near_deliv.get(sid, 0))
+                    if sid in mo_errors:
+                        status, msg = mo_errors[sid]
+                        incidents.append({
+                            "cycle_ts": cycle_fetched_at, "spot_id": sid,
+                            "fault_type": "metocean_fetch_error",
+                            "near_missing": near_expected,
+                            "slots_delivered": tot_deliv.get(sid, 0),
+                            "http_status": status, "detail": msg})
+                    elif om_fc_by_id.get(sid) is None or om_mar_by_id.get(sid) is None:
+                        if near_missing > 0:
+                            incidents.append({
+                                "cycle_ts": cycle_fetched_at, "spot_id": sid,
+                                "fault_type": "openmeteo_skip",
+                                "near_missing": near_missing,
+                                "slots_delivered": tot_deliv.get(sid, 0),
+                                "http_status": None,
+                                "detail": "spot dropped: Open-Meteo wind/weather chunk missing (not MetOcean)"})
+                    elif near_missing > 0:
+                        incidents.append({
+                            "cycle_ts": cycle_fetched_at, "spot_id": sid,
+                            "fault_type": "metocean_no_data",
+                            "near_missing": near_missing,
+                            "slots_delivered": tot_deliv.get(sid, 0),
+                            "http_status": None,
+                            "detail": f"MetOcean noData on {near_missing}/{near_expected} near-horizon (day<=6) slots"})
+                if incidents:
+                    sb_insert("metocean_incidents", incidents)
+                    mo_faults = sum(1 for i in incidents if i["fault_type"].startswith("metocean_"))
+                    print(f"  recorded {len(incidents)} incident(s) "
+                          f"({mo_faults} MetOcean, {len(incidents)-mo_faults} Open-Meteo)", flush=True)
+            except Exception as e:
+                print(f"  metocean incident logging skipped: {str(e)[:150]}", flush=True)
 
         sb_update("fetch_log", log_id, {
             "completed_at": datetime.now(timezone.utc).isoformat(),
