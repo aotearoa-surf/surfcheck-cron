@@ -1,0 +1,41 @@
+name: Apply calibration approvals
+
+# Makes the live bin factors in _shelter_curves.json match the Approve / Remove
+# decisions made on the calibration dashboard, so an approval goes live with no
+# human/Claude step. Reads calibration_proposals, writes the file + spot_factors,
+# commits only when something changed. Runs hourly (+ manual button).
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: apply-approvals
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply approvals
+        id: apply
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python -u _apply_approvals.py
+      - name: Commit if changed
+        if: steps.apply.outputs.changed == '1'
+        run: |
+          git config user.name  "surfcheck-bot"
+          git config user.email "noreply@surfcheck.nz"
+          git add _shelter_curves.json
+          git commit -m "calib: auto-apply dashboard approvals [skip ci]"
+          git push
