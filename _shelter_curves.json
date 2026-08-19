@@ -38,6 +38,7 @@
    "rangiwhakaoma-castlepoint",
    "riversdale",
    "riverton",
+   "ruakaka",
    "sumner-scarborough",
    "takou-bay",
    "tauroa-shippies",
@@ -231,5 +232,9 @@
   "S": 0.2,
   "SW": 0.45,
   "NE": 0.85
+ },
+ "ruakaka": {
+  "SE": 0.55,
+  "SW": 0.71
  }
 }
