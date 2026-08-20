@@ -53,16 +53,8 @@ FLAT_FACTORS = {
     # is impossible; interim flat from the 16 Aug fit. REVISIT with a 2nd
     # capture, then fit a proper smooth curve.
     "paekakariki": 0.55,
-    # Sumner + Taylors (Banks Peninsula), TRIAL 20 Aug. Their old directional bins
-    # {S:0.2,SE:0.5,...} were Open-Meteo-era over-cuts that crushed correct MetOcean
-    # peaks (removed 19 Aug). Raw MetOcean then matched GSN on the Sat-Sun peaks but
-    # over-read the QUIET days by ~0.4m (persistent SE 12-15s background at the point
-    # that GSN doesn't show). Flat 0.8 lands the peaks bang-on GSN and halves the
-    # quiet-day over-read; MAE 0.36->0.21 (Sumner) / 0.41->0.24 (Taylors) on the
-    # 20 Aug NW/W window. MILD on purpose (best-MAE 0.6 would under-read the peaks,
-    # the worse error). INTERIM - let captures feed a data-driven refit.
-    "sumner-scarborough": 0.80,
-    "taylors-mistake":    0.80,
+    # Sumner + Taylors moved to the Open-Meteo per-spot override 20 Aug (see
+    # _fetch_main marine_source handling), so no MetOcean flat factor applies.
 }
 _SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 

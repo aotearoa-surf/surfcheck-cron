@@ -657,15 +657,20 @@ def main():
                 # Verified against both before switching, see
                 # _MARINE_SOURCE_POLICY.md. (Che approved 2026-08-04.)
                 marine_src = (s.get("marine_source") or "stormglass").strip().lower()
-                # Che, 9 Aug (post-go-live): "I only want to use MetOcean for
-                # wave and swell data." No per-spot Open-Meteo exceptions; the
-                # marine_source="open-meteo" flag (Sumner, Taylors) only applies
-                # outside metocean mode. Known cost, accepted: Sumner tracks
-                # GSN's average through the 0.45 factor but not its day-to-day
-                # shape (~0.20 m residual); fixing that inside MetOcean needs
-                # their Pro-tier regional domains.
-                use_om_marine = marine_src.startswith("open") and MARINE_MODE != "metocean"
+                # Per-spot Open-Meteo override (Che 20 Aug 2026). marine_source=
+                # "open-meteo" now wins even in MetOcean mode, for the handful of
+                # genuinely sheltered spots where MetOcean fabricates a phantom
+                # long-period background that GSN / Open-Meteo / Surfline all agree
+                # isn't there. Sumner + Taylors (Banks Peninsula) confirmed: raw
+                # MetOcean over-reads flat days ~0.5 m; Open-Meteo matches GSN to
+                # ~0.11 m MAE over 7 days. These spots run the legacy OM pipeline
+                # (adjustment_factor + Tp*1.2 + chop-trim + energy swaps) driven by
+                # spot_uses_mo below; the rest of the fleet stays MetOcean.
+                use_om_marine = marine_src.startswith("open")
                 mo_active = MARINE_MODE == "metocean"
+                # True only for spots that take MetOcean this cycle: metocean mode
+                # AND not flagged for the Open-Meteo override.
+                spot_uses_mo = mo_active and not use_om_marine
 
                 # Stormglass — pin-only, no lineup fallback
                 sg = None
@@ -673,7 +678,7 @@ def main():
                                and MARINE_MODE != "metocean")
                 if sg_expected and sg_by_pin.get(s["pin_id"]):
                     sg = sg_by_pin[s["pin_id"]]
-                if mo_active:
+                if spot_uses_mo:
                     # D1 directional shelter curve (Che approved 9 Aug night):
                     # per-slot factor from dominant swell direction, applied
                     # inside metocean_slot_fields. Separate from
@@ -720,7 +725,7 @@ def main():
                         si = 0
                     wave_m = period_s = swell_deg = None
                     prim_swell_h = sec_swell_h = sec_swell_period = sec_swell_deg = windwave_h = None
-                    if MARINE_MODE == "metocean":
+                    if spot_uses_mo:
                         # MetOcean arrays are built on slot_keys order, index j_slot.
                         flds = metocean_slot_fields(mo, j_slot, d1_curve, d2_smooth, d_flat)
                         if flds is None:
@@ -780,7 +785,7 @@ def main():
                     # rather have stale SG data in the database".)
                     if sg_expected and wave_m is None:
                         continue
-                    if MARINE_MODE != "metocean":
+                    if not spot_uses_mo:
                         # Open-Meteo fallbacks + Tm->Tp only apply to the legacy
                         # sources. MetOcean periods are already PEAK, and a slot
                         # with no MetOcean data was skipped above.
@@ -805,7 +810,7 @@ def main():
                     # energy swap, the 30%/9s groundswell override and the R5c
                     # windswell override below. All three approximated the
                     # band-vs-band decision MetOcean's 8s split provides natively.
-                    _ranked = (MARINE_MODE != "metocean"
+                    _ranked = (not spot_uses_mo
                                and prim_swell_h is not None and sec_swell_h is not None
                                and sec_swell_period is not None and period_s is not None)
                     if (_ranked and sec_swell_h * sec_swell_h * sec_swell_period
@@ -867,7 +872,7 @@ def main():
                             swell_deg, sec_swell_deg = sec_swell_deg, swell_deg
                             prim_swell_h, sec_swell_h = sec_swell_h, prim_swell_h
                     if (swell_deg is None and not sg_expected and mi is not None
-                            and MARINE_MODE != "metocean"):
+                            and not spot_uses_mo):
                         wd = om_mar["hourly"].get("wave_direction")
                         swell_deg = wd[mi] if wd else None
 
@@ -892,7 +897,7 @@ def main():
                     # MetOcean mode skips the trim: its nearshore model already
                     # resolves what an offshore wind delivers to the beach, and
                     # GoodSurfNow (the target) publishes the untrimmed total.
-                    if MARINE_MODE != "metocean":
+                    if not spot_uses_mo:
                         wave_m, windwave_h = offshore_chop_trim(
                             wave_m, prim_swell_h, sec_swell_h, windwave_h,
                             wind_deg, s.get("offshore_wind"))
@@ -971,6 +976,10 @@ def main():
                 incidents = []
                 for s in spots:
                     sid = s["id"]
+                    # Open-Meteo-override spots don't use MetOcean; a shortfall
+                    # there is an Open-Meteo issue, not a MetOcean fault.
+                    if (s.get("marine_source") or "").strip().lower().startswith("open"):
+                        continue
                     near_missing = max(0, near_expected - near_deliv.get(sid, 0))
                     if sid in mo_errors:
                         status, msg = mo_errors[sid]
