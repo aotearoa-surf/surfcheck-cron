@@ -8,6 +8,7 @@
   "applied_spots": [
    "allans-beach",
    "aramoana",
+   "awana-gbi",
    "awatoto",
    "back-beach",
    "blue-cliffs",
@@ -222,5 +223,11 @@
  "ruakaka": {
   "SE": 0.55,
   "SW": 0.71
+ },
+ "awana-gbi": {
+  "E": 0.7,
+  "NE": 0.55,
+  "SE": 0.81,
+  "SW": 0.7
  }
 }
