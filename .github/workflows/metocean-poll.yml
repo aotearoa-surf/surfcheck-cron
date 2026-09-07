@@ -3,9 +3,12 @@ name: MetOcean refresh telemetry
 # Logs when MetOcean publishes new model runs (1 API unit per poll) so the
 # fetch schedule can be re-tuned from data. GitHub's schedule trigger can
 # drift/skip, which is fine for telemetry: resolution just gets coarser.
+# Sep 2026: dropped from every 30 min to every 2 h as a MetOcean cost cut -
+# the schedule is already tuned (publishes ~06/12/18 UTC), so 2 h resolution
+# is plenty to keep confirming it. ~1k units/mo saved.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 concurrency:

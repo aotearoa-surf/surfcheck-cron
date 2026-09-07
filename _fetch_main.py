@@ -574,7 +574,24 @@ def main():
         sg_by_pin = {}
         mo_by_spot = {}
         mo_errors = {}   # spot_id -> (http_status|None, message) for escalation record
-        if MARINE_MODE == "metocean":
+        # COST GUARD (Sep 2026): skip the paid MetOcean fetch on the 02:30 UTC
+        # cycle (= 14:30 NZT). MetOcean's global wave model publishes ~06/12/18
+        # UTC; nothing new lands between the 20:30 fetch and 02:30, so telemetry
+        # (mo_refresh_log) showed this cycle captures ~1 new model run vs 13-28
+        # for the other three - it only re-pulls the morning model's data at
+        # full unit cost. Dropping it keeps us under the MetOcean 100k/mo cap
+        # (~29k units/mo saved). Every MetOcean spot keeps its existing rows via
+        # the same `mo is None -> continue` path a per-spot miss uses, so no
+        # forecast VALUE changes (no new model exists to show). _watchdog.py
+        # FETCH_HOURS_UTC is updated to match so this is not flagged stale.
+        # Set FORCE_MO=1 (env) to run MetOcean anyway on a manual 02:30 dispatch.
+        skip_mo_cycle = (datetime.now(timezone.utc).hour == 2
+                         and os.environ.get("FORCE_MO") != "1")
+        if MARINE_MODE == "metocean" and skip_mo_cycle:
+            print("[1/3] MetOcean fetch SKIPPED - 02:30 UTC cost-saver cycle "
+                  "(no new model run publishes overnight); keeping previous "
+                  "wave data. Set FORCE_MO=1 to override.", flush=True)
+        elif MARINE_MODE == "metocean":
             from _metocean import fetch_metocean
             print(f"[1/3] Fetching MetOcean for {len(spots)} spots (lineup GPS)…", flush=True)
             mo_from_utc = (today_nz - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
