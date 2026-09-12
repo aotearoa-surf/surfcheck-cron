@@ -20,7 +20,7 @@ untouched.
 Only BIN factors flow through the dashboard; smooth (D2) and flat curves stay in
 code and are not touched here.
 """
-import os, json, sys, urllib.request, urllib.error
+import os, json, sys, time, urllib.request, urllib.error
 
 URL = os.environ["SUPABASE_URL"].rstrip("/")
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -29,23 +29,50 @@ FILE = "_shelter_curves.json"
 LIVE = ("approved", "applied", "removed")
 
 
+# Transient network/gateway blips (e.g. Supabase 504 Gateway Timeout, or a read
+# timeout) must not fail the whole run + email on a red job. Retry those a few
+# times with a short backoff; only a persistent failure raises.
+_TRANSIENT_CODES = {500, 502, 503, 504}
+
+
+def _open(req, tries=4, backoff=2):
+    for i in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code in _TRANSIENT_CODES and i < tries - 1:
+                print(f"  transient HTTP {e.code} on {req.get_method()} {req.full_url} "
+                      f"- retry {i + 1}/{tries - 1}", flush=True)
+                time.sleep(backoff * (i + 1))
+                continue
+            raise
+        except urllib.error.URLError as e:  # timeouts, connection resets, DNS
+            if i < tries - 1:
+                print(f"  transient {type(e).__name__} ({e.reason}) on {req.get_method()} "
+                      f"{req.full_url} - retry {i + 1}/{tries - 1}", flush=True)
+                time.sleep(backoff * (i + 1))
+                continue
+            raise
+
+
 def sb_get(path):
     r = urllib.request.Request(f"{URL}/rest/v1/{path}", headers=H)
-    with urllib.request.urlopen(r, timeout=30) as resp:
-        return json.load(resp)
+    _, body = _open(r)
+    return json.loads(body)
 
 
 def sb_write(path, body, method, prefer="return=minimal"):
     r = urllib.request.Request(f"{URL}/rest/v1/{path}", data=json.dumps(body).encode() if body is not None else None,
                                headers={**H, "Prefer": prefer}, method=method)
-    with urllib.request.urlopen(r, timeout=30) as resp:
-        return resp.status
+    status, _ = _open(r)
+    return status
 
 
 def sb_delete(path):
     r = urllib.request.Request(f"{URL}/rest/v1/{path}", headers=H, method="DELETE")
-    with urllib.request.urlopen(r, timeout=30) as resp:
-        return resp.status
+    status, _ = _open(r)
+    return status
 
 
 def main():
