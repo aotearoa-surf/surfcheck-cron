@@ -7,11 +7,29 @@ times, we may change again"). Analyse with:
   select polled_at at time zone 'Pacific/Auckland', changed
   from mo_refresh_log where changed order by polled_at desc;
 """
-import json, os, urllib.request
+import json, os, time, urllib.request, urllib.error
 from datetime import datetime, timedelta, timezone
 
 MO_URL = "https://forecast-v2.metoceanapi.com/point/time"
 POINT = {"lon": 174.653, "lat": -36.166}   # Forestry lineup
+
+
+def _open(req, tries=3, backoff=2):
+    # Retry transient gateway/server blips (e.g. Supabase 504 Gateway Timeout, or a
+    # read timeout) so a one-off hiccup on this telemetry poll doesn't red the run +
+    # email. Only a persistent failure raises.
+    for i in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code in (500, 502, 503, 504) and i < tries - 1:
+                time.sleep(backoff * (i + 1)); continue
+            raise
+        except urllib.error.URLError:   # timeouts, connection resets, DNS
+            if i < tries - 1:
+                time.sleep(backoff * (i + 1)); continue
+            raise
 
 
 def sb(path, method="GET", body=None):
@@ -21,8 +39,7 @@ def sb(path, method="GET", body=None):
         headers={"apikey": os.environ["SUPABASE_SERVICE_KEY"],
                  "Authorization": "Bearer " + os.environ["SUPABASE_SERVICE_KEY"],
                  "Content-Type": "application/json", "Prefer": "return=minimal"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode() or "null")
+    return json.loads(_open(req).decode() or "null")
 
 
 def main():
@@ -33,8 +50,7 @@ def main():
                        "time": {"from": frm, "interval": "48h", "repeat": 2}}).encode()
     req = urllib.request.Request(MO_URL, data=body, headers={
         "Content-Type": "application/json", "x-api-key": os.environ["METOCEAN_KEY"]})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        d = json.loads(r.read().decode())
+    d = json.loads(_open(req).decode())
     vals = {t: round(v, 4) for t, v in zip(d["dimensions"]["time"]["data"],
                                            d["variables"]["wave.height"]["data"])
             if v is not None}
