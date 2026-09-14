@@ -8,7 +8,7 @@ wf = os.environ.get("WF_NAME", "unknown workflow")
 url = os.environ.get("RUN_URL", "")
 host = os.environ.get("SMTP_HOST", "mail.surfcheck.nz")
 user = os.environ.get("SMTP_USER", "noreply@surfcheck.nz")
-to = os.environ.get("NOTIFY_TO", "surf@aotearoasurf.co.nz")
+to = os.environ.get("WATCHDOG_TO", "che@aotearoasurf.co.nz")  # ops failures -> Che, NOT the surf@ customer inbox
 
 msg = MIMEText(f"GitHub workflow FAILED: {wf}\n\nRun logs: {url}\n", "plain", "utf-8")
 msg["Subject"], msg["From"], msg["To"] = f"⚠ SurfCheck workflow failed: {wf}", user, to
