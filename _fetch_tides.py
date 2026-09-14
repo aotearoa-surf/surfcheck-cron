@@ -16,6 +16,8 @@ script ONLY refreshes the tide columns on those existing rows.
 import json, os, sys, io, time, re
 from datetime import datetime, timezone, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from dotenv import load_dotenv
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -29,12 +31,21 @@ SB_HEADERS = {
 }
 SB_HEADERS_RETURN = {**SB_HEADERS, "Prefer": "return=representation"}
 
+# Retry transient gateway/server blips (e.g. Supabase 504 Gateway Timeout) on
+# READS only - a one-off hiccup on a paginated slot_forecast read was failing the
+# whole daily run + emailing. GET is idempotent so retrying is safe; writes are
+# left on plain requests to avoid any double-write on a timed-out POST.
+SESSION = requests.Session()
+_RETRY = Retry(total=3, backoff_factor=2, status_forcelist=(500, 502, 503, 504),
+               allowed_methods=frozenset({"GET"}))
+SESSION.mount("https://", HTTPAdapter(max_retries=_RETRY))
+
 NIWA_KEY = os.environ["NIWA_KEY"]
 NZ_TZ    = timezone(timedelta(hours=12))
 
 
 def sb_select(table, params=""):
-    r = requests.get(f"{URL}/rest/v1/{table}?select=*{params}", headers=SB_HEADERS, timeout=30)
+    r = SESSION.get(f"{URL}/rest/v1/{table}?select=*{params}", headers=SB_HEADERS, timeout=30)
     r.raise_for_status()
     return r.json()
 
@@ -134,7 +145,7 @@ def fetch_om_marine_for_sealevel(lat, lng):
     """Open-Meteo Marine gives a 30-min sea_level_height_msl array we use for the
     rising/falling direction on non-event slots."""
     h = "sea_level_height_msl"
-    return requests.get(
+    return SESSION.get(
         f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lng}"
         f"&hourly={h}&timezone=Pacific%2FAuckland&forecast_days=7", timeout=30
     ).json()
@@ -162,7 +173,7 @@ def main():
         existing_pages = []
         offset = 0
         while True:
-            r = requests.get(
+            r = SESSION.get(
                 f"{URL}/rest/v1/slot_forecast?select=spot_id,slot_key,tide_event_type,tide_height_m"
                 f"&offset={offset}&limit=1000",
                 headers=SB_HEADERS, timeout=60,
