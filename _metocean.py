@@ -111,6 +111,17 @@ D2_SMOOTH = {
     # shelter (open NE/E, moderate SW, low S/SE) - it crushed SW and sawtoothed.
     # Reverted to their D1 bins; the spike is now fixed by the uncovered-sector
     # min-fallback in metocean_slot_fields instead.)
+    # Cluster 1, Te Arai / Mangawhai (Che approved 22 Sep 2026). Both bins
+    # over-read systematically across the 09-02/09-12/09-22 regimes (te-arai
+    # +0.11/+0.27/+0.30). Fitted on all 6 captures (16-23 Aug + 3 Sep captures),
+    # validated leave-one-capture-out: te-arai smooth 0.119 vs bin 0.200,
+    # forestry 0.111 vs 0.155; live 22 Sep 72h over-read te-arai 0.268 -> 0.105,
+    # forestry 0.190 -> 0.113. Both open ~SW (least sheltered), NE most blocked.
+    # ROLLBACK: delete these two lines and set spot_factors.model='bin' for both;
+    # their bin factors in spot_factors are preserved untouched. Mangawhai NOT
+    # migrated (smooth 0.098 only tied bin 0.100 out-of-sample; kept on bins).
+    "te-arai":  {"open_deg": 240, "lo": 0.422, "hi": 0.636, "p": 6.0},
+    "forestry": {"open_deg": 255, "lo": 0.513, "hi": 0.807, "p": 6.0},
 }
 
 
